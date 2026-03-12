@@ -1,0 +1,283 @@
+# BYUconnect MVP – Master Build Prompt (for Replit / Lovable)
+
+## ROLE
+
+You are a senior mobile engineer + senior product designer. Your job is to build a **production-quality MVP** for **BYUconnect**, a BYU-only campus events & clubs mobile application. The app must faithfully implement the attached **high-fidelity wireframes**, **Product Spec**, and **ERD**, and follow modern mobile UX/UI best practices.
+
+The UI should feel **Instagram-minimal**, clean, slate-based, and uncluttered, with subtle BYU color accents. Where multiple tabs exist, they must be **equal width and span the full screen**. The app should feel fast, calm, and purposeful.
+
+---
+
+## PRODUCT VISION (NON-NEGOTIABLE)
+
+1. **Time-first discovery**
+
+   * Default sorting prioritizes events happening **now**, then **soonest upcoming**.
+   * Distance is a secondary tie-breaker only when time is equal.
+
+2. **Clubs are the supply side**
+
+   * Events are always created and owned by **clubs**, never individuals.
+   * Event cards and detail pages must display the **club name**, not a user.
+
+3. **Low-friction, non-social**
+
+   * NO comments, likes, DMs, follower counts, or social feeds.
+   * This is not a social network. It is a campus utility.
+
+4. **BYU-only context**
+
+   * Only BYU campus buildings, BYU clubs, and BYU events.
+   * No off-campus aggregation or external organizations.
+
+5. **Limited capacity events**
+
+   * Some events optionally require reservations.
+   * If enabled, users must reserve to attend.
+   * Show remaining spots, but never show attendee lists or check-ins.
+
+---
+
+## RECOMMENDED MVP TECH STACK
+
+* **Mobile:** Expo (React Native) + TypeScript
+* **Navigation:** React Navigation or Expo Router
+* **Backend:** Supabase (Postgres, Auth, Storage, RLS)
+* **Maps:** react-native-maps
+* **Payments:** Mock provider (Stripe-like flow, no real charging required)
+* **Analytics:** Database-level event interaction logging
+
+---
+
+## REQUIRED SCREENS & FLOWS
+
+### Authentication
+
+* Email/password login (placeholder for future BYU SSO)
+* Create User record on first login
+
+### Core Navigation (Bottom Tabs)
+
+1. **Map** (primary discovery)
+2. **MyClubs**
+3. **Profile**
+
+Bottom navigation must always be visible and minimal.
+
+---
+
+### Map / List Discovery
+
+* Default view: **Map with building pins**
+* Each pin represents a BYU building and shows event count
+* Tapping a pin opens a **bottom sheet** with events in that building
+* Toggle between **Map** and **List** using equal-width segmented tabs
+
+**List View Requirements**
+
+* Event cards styled like minimal Instagram posts
+* Clear start time and “Now / Soon / Today” labels
+* Club name visible, no poster avatar
+
+---
+
+### Search
+
+* Persistent search entry point
+* Search across:
+
+  * Events
+  * Clubs
+  * Buildings
+  * Categories / tags
+* Results organized into equal-width segmented tabs (Top / Events / Clubs / Buildings)
+
+---
+
+### Filters (Bottom Sheet)
+
+Priority order:
+
+1. Time window
+2. Category
+3. Club
+4. Location (building)
+5. Food provided
+
+Filters must be fast, state-preserving, and dismissible.
+
+---
+
+### Event Detail Screen
+
+Must include:
+
+* Event title
+* Club name
+* Time & date
+* Building + map link
+* Description
+* Category tags
+
+Primary actions:
+
+* **Reserve Spot** (if limited capacity)
+* **Save Event** (bookmark)
+
+Secondary actions:
+
+* Share link
+* Add to calendar (ICS export)
+* Open directions
+
+---
+
+### MyClubs
+
+* List of clubs the user belongs to
+* Entry point for club discovery
+* Clear indication of admin roles
+
+---
+
+### Club Profile
+
+Tabs (equal width):
+
+* About
+* Activity (events + announcements)
+* Contact
+
+Must support:
+
+* Public view for non-members
+* Admin controls for authorized users
+
+---
+
+### Club Admin Mode
+
+Users with admin/president roles can:
+
+* Switch into club context
+* Create, edit, cancel events
+* Post announcements
+* Approve or deny join requests
+* View basic analytics
+
+Admin permissions must be enforced via backend rules.
+
+---
+
+### Notifications
+
+* In-app notification center
+* Notification preference toggles
+
+Trigger notifications for:
+
+* Event time/location changes (saved events)
+* Reservation confirmations or cancellations
+* Club announcements
+* Membership approvals or denials
+
+---
+
+## DATA MODEL (MUST MATCH ERD)
+
+Implement the following tables:
+
+* User
+* Club
+* ClubMembership
+* MembershipRequest
+* Building
+* Category
+* Event
+* EventSave
+* Reservation
+* Announcement
+* Notification
+* NotificationPreference
+* Payment
+* EventInteraction
+* EventChangeLog
+* Report
+
+### Critical Rules
+
+* Unique (user_id, club_id) memberships
+* Unique (user_id, event_id) saves
+* Reservation required when limited capacity is enabled
+* Event updates create change logs and notifications
+
+---
+
+## PERMISSIONS & SECURITY
+
+* Supabase Auth + Row Level Security
+* Students can read published events
+* Only club admins can create or modify their club’s events
+* No user-authored public content
+
+---
+
+## SORTING & RANKING LOGIC
+
+Default ordering:
+
+1. Events happening now
+2. Soonest upcoming events
+3. Distance (tie-breaker only)
+
+No algorithmic “For You” feed in MVP.
+
+---
+
+## SEED DATA REQUIREMENTS
+
+Seed the database with:
+
+* 10 BYU buildings (lat/long)
+* 10 categories
+* 12 clubs
+* 40 events across the next 7 days
+* Mixed capacity events
+* Example student user
+* Example club admin user
+
+---
+
+## ANALYTICS
+
+Log EventInteraction records for:
+
+* Impression
+* View
+* Save
+* Map click
+* Calendar export
+* Reservation
+
+Provide a simple admin analytics view summarizing these counts.
+
+---
+
+## DELIVERABLES
+
+1. Fully running Expo app
+2. Supabase SQL schema + RLS policies
+3. Seed scripts
+4. README explaining setup and testing
+
+---
+
+## UX / UI QUALITY BAR
+
+* Slate-based color palette with subtle BYU accents
+* Equal-width tabs everywhere tabs exist
+* No clutter, no social mechanics
+* Minimum 44px touch targets
+* Accessible contrast and typography
+
+Build this MVP as if it will be demoed to BYU stakeholders and engineering leadership.

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#dde3ed}
+#map{width:100%;height:100%}
+.mk{display:flex;flex-direction:column;align-items:center;cursor:pointer}
+.mk-c{width:38px;height:38px;border-radius:50%;background:#002E5D;color:#fff;display:flex;align-items:center;justify-content:center;font-family:-apple-system,system-ui,sans-serif;font-weight:700;font-size:15px;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,46,93,.35);transition:transform .12s}
+.mk:hover .mk-c{transform:scale(1.15)}
+.mk-t{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #002E5D;margin-top:-1px}
+.mk-n{font-family:-apple-system,system-ui,sans-serif;font-size:10px;font-weight:600;color:#002E5D;background:rgba(255,255,255,.94);padding:2px 6px;border-radius:4px;white-space:nowrap;margin-top:2px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+#loading{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font-family:-apple-system,system-ui,sans-serif;color:#6B7280;font-size:14px;z-index:5;background:#dde3ed}
+</style>
+</head>
+<body>
+<div id="loading">Loading map...</div>
+<div id="map"></div>
+<script>
+(function(){
+  var params = new URLSearchParams(window.location.search);
+  var lat = parseFloat(params.get('lat')) || 40.2502;
+  var lng = parseFloat(params.get('lng')) || -111.6493;
+  var zoom = parseFloat(params.get('zoom')) || 15.5;
+  var key = params.get('key') || 'HalOFfShOFGRip19eGRc';
+  var mapId = params.get('mapId') || '019ac349-d5ee-795c-85cf-2cc023e13ad5';
+  var markersParam = params.get('markers');
+  var markers = [];
+  if (markersParam) {
+    try { markers = JSON.parse(decodeURIComponent(markersParam)); } catch(e) {}
+  }
+
+  var styleUrl = 'https://api.maptiler.com/maps/' + mapId + '/style.json?key=' + key;
+
+  var map = new maplibregl.Map({
+    container: 'map',
+    style: styleUrl,
+    center: [lng, lat],
+    zoom: zoom,
+    attributionControl: false
+  });
+
+  map.addControl(new maplibregl.NavigationControl({showCompass:false}), 'top-right');
+
+  map.on('load', function(){
+    document.getElementById('loading').style.display = 'none';
+    markers.forEach(function(m){
+      var el = document.createElement('div');
+      el.className = 'mk';
+      var c = document.createElement('div'); c.className = 'mk-c'; c.textContent = m.count;
+      var t = document.createElement('div'); t.className = 'mk-t';
+      var n = document.createElement('div'); n.className = 'mk-n'; n.textContent = m.label;
+      el.appendChild(c); el.appendChild(t); el.appendChild(n);
+      el.onclick = function(e){
+        e.stopPropagation();
+        window.parent.postMessage(JSON.stringify({type:'markerPress', id:m.id}), '*');
+      };
+      new maplibregl.Marker({element:el, anchor:'bottom'}).setLngLat([m.longitude, m.latitude]).addTo(map);
+    });
+  });
+
+  map.on('error', function(e) {
+    document.getElementById('loading').textContent = 'Map style loading...';
+    console.error('Map error:', e);
+  });
+
+  setTimeout(function(){
+    var ld = document.getElementById('loading');
+    if (ld) ld.style.display = 'none';
+  }, 5000);
+})();
+</script>
+</body>
+</html>
