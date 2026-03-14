@@ -12,6 +12,7 @@ export default function LoginScreen() {
   const layout = useResponsiveLayout();
   const [email, setEmail] = useState("student@byu.edu");
   const [password, setPassword] = useState("password123");
+  const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -21,13 +22,16 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      const success = await login(email.trim(), password);
+      const success = await login(email.trim(), password, name.trim() || undefined);
       if (success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         router.dismissAll();
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert("Error", "Invalid email or password");
+        Alert.alert(
+          "Error",
+          "Invalid email or password. New user? Enter your name above to create a profile on first login."
+        );
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Something went wrong";
@@ -66,6 +70,18 @@ export default function LoginScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                />
+              </View>
+
+              <View style={styles.inputWrapper}>
+                <Text style={styles.label}>Name (optional — for new accounts)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Your name"
+                  placeholderTextColor={Colors.light.textTertiary}
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
                 />
               </View>
 

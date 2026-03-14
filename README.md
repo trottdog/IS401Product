@@ -7,6 +7,7 @@ BYUconnect is an Expo + React Native app for discovering BYU clubs and campus ev
 - PostgreSQL via Drizzle ORM
 - SQLite fallback for local backend development
 - Session-based authentication
+- User profile created in the database on first login (optional name on login creates an account)
 - Club, event, reservation, save, notification, and map features
 
 ## Tech Stack
@@ -115,32 +116,43 @@ Then open the app in whichever target you want:
 
 ## Database Setup
 
-Push the Drizzle schema to your database:
+You can use either **PostgreSQL** (for production or shared dev) or **SQLite** (easiest for local development). The schema is defined in `shared/schema.ts`.
 
-```bash
-npm run db:push
-```
+### Option 1: SQLite (local development, no extra setup)
 
-The app uses the schema in:
+1. **No database server needed.** Install dependencies and set the backend to use SQLite.
+2. In your `.env`, set (or leave unset to use SQLite when `DATABASE_URL` is missing):
+   ```bash
+   DB_PROVIDER=sqlite
+   NODE_ENV=development
+   EXPO_PUBLIC_DOMAIN=localhost:5000
+   ```
+3. Start the backend (e.g. `npm run server:sqlite:dev` or `npm run server:dev` if `DATABASE_URL` is not set).
+4. On first run, the backend creates `.local/byuconnect.sqlite`, applies the schema, and seeds it automatically. No `db:push` step required.
 
-```text
-shared/schema.ts
-```
+To use a different file path, set `SQLITE_DB_PATH` in `.env`.
 
-Seed-related data lives in:
+### Option 2: PostgreSQL
 
-```text
-lib/data/seed-data.ts
-server/seed.ts
-```
+1. **Create a PostgreSQL database** (locally or on a host) and note the connection details.
+2. In your `.env`, set:
+   ```bash
+   DATABASE_URL=postgres://USER:PASSWORD@HOST:PORT/DB_NAME
+   NODE_ENV=development
+   EXPO_PUBLIC_DOMAIN=localhost:5000
+   ```
+3. Push the Drizzle schema to the database:
+   ```bash
+   npm run db:push
+   ```
+4. (Optional) Seed data is in `lib/data/seed-data.ts` and `server/seed.ts`. Review those files and run the seed flow that matches your environment if you want initial clubs, events, etc.
 
-If you want to seed locally, review those files first and run the seed flow that matches your environment.
+### Summary
 
-SQLite notes:
-
-- The backend auto-initializes the SQLite schema on startup.
-- The SQLite schema mirrors the domain defined in `shared/schema.ts`.
-- Seed data is inserted automatically the first time the SQLite file is created.
+| Setup        | Steps |
+|-------------|--------|
+| **SQLite**  | Set `DB_PROVIDER=sqlite` (or omit `DATABASE_URL`), then start the backend. Schema and seed are created automatically. |
+| **PostgreSQL** | Set `DATABASE_URL`, run `npm run db:push`, then start the backend. Seed manually if desired. |
 
 ## Available Scripts
 
@@ -165,6 +177,8 @@ Main app areas:
 - `app/(auth)/` - Login and registration
 
 ## Backend Overview
+
+**Authentication:** Login (`POST /api/auth/login`) and register (`POST /api/auth/register`) set the session. On first login, if no user exists for the given email, a profile is created in the database when the request includes a name (optional name field on the login screen). Existing users sign in with email and password only.
 
 Important backend files:
 

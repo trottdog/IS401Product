@@ -32,10 +32,14 @@ export async function initializeStore(): Promise<void> {}
 
 export async function resetStore(): Promise<void> {}
 
-export async function login(email: string, password: string): Promise<any | null> {
+export async function login(
+  email: string,
+  password: string,
+  name?: string
+): Promise<any | null> {
   const res = await api("/api/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, ...(name?.trim() ? { name: name.trim() } : {}) }),
   });
   if (res.status === 401) return null;
   if (!res.ok) {
