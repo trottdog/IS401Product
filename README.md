@@ -1,56 +1,65 @@
 # BYUconnect
 
-BYUconnect is an Expo + React Native app for discovering BYU clubs and campus events. It includes:
+[![Repository](https://img.shields.io/badge/repo-GitHub-blue)](https://github.com/trottdog/IS401Product)
 
-- A mobile-first Expo app that also runs on the web
-- An Express backend in the same repo
-- PostgreSQL via Drizzle ORM
-- SQLite fallback for local backend development
-- Session-based authentication
-- User profile created in the database on first login (optional name on login creates an account)
-- Club, event, reservation, save, notification, and map features
+BYUconnect is a mobile-first app for discovering BYU clubs and campus events. It is built with Expo (React Native) and an Express backend in the same repository. Key capabilities include browsing events and clubs on a map or list, saving and reserving events, creating events (when authenticated), session-based auth, and notifications—all with a responsive experience on mobile and web.
+
+## Features
+
+- **Discover events** – Map and list views of upcoming campus events, sorted by date and time
+- **Clubs** – Browse clubs by category, view club profiles, join/leave, and see upcoming events
+- **Map** – Building pins with event counts; tap to see events at a location
+- **Save and reserve events** – Save events for later and reserve spots (when capacity is limited)
+- **Create events** – Authenticated users can create events (with optional cover image)
+- **Auth** – Login and register; session-based; profile created on first login
+- **Notifications** – In-app notifications (profile tab)
+- **Responsive** – Mobile-first with desktop-friendly layouts (same codebase)
 
 ## Tech Stack
 
-- Expo SDK 54
-- React Native / React Native Web
-- Expo Router
-- Express 5
-- PostgreSQL
-- SQLite
-- Drizzle ORM
-- TypeScript
+- **Frontend:** Expo SDK 54, React Native / React Native Web, Expo Router, TypeScript
+- **Backend:** Express 5, TypeScript
+- **Data:** Drizzle ORM, PostgreSQL or SQLite
+- **Other:** TanStack Query (React Query), Zod (validation), express-session (session auth)
 
 ## Project Structure
 
 ```text
-app/                  Expo Router screens
+app/                    Expo Router screens (tabs: home, clubs, profile; auth)
+  (tabs)/(home)/        Discover, event detail, club detail, search, create-event
+  (tabs)/(clubs)/       Clubs list and discovery
+  (tabs)/(profile)/    Profile, saved/reserved events, notifications
+  (auth)/               Login, register
 components/
-  cards/              Club and event cards
-  layout/             Page shell and layout/error helpers
-  map/                Native and web map wrappers
-  ui/                 Small reusable UI primitives
+  cards/                Club and event cards
+  layout/               PageShell, error and layout helpers
+  map/                  Native and web map wrappers
+  ui/                   SegmentedControl and other small UI primitives
 lib/
-  api/                Frontend API client and store helpers
-  auth/               Auth context
-  data/               Seed data used by backend/local setup
-  theme/              Shared design tokens and colors
-  ui/                 Responsive layout helpers
-  types.ts            Shared frontend domain types
-server/               Express server, routes, storage, templates
-shared/               Shared database schema
-scripts/              Build helpers
+  api/                  Frontend API client (store), query client
+  auth/                 Auth context
+  data/                 Seed data used by backend
+  theme/                Colors and design tokens
+  ui/                   Responsive layout helpers
+  utils/                Shared helpers (e.g. event sorting)
+  types.ts              Shared frontend domain types
+server/                 Express server
+  index.ts              Entry point
+  routes.ts             REST API routes
+  storage.ts            Data operations
+  db.ts                 DB connection
+  sqlite.ts             SQLite provider
+  seed.ts               Seed script
+  templates/            HTML templates (map, landing)
+shared/                 Shared DB schema (Drizzle)
+scripts/                Build helpers
 ```
 
 ## Prerequisites
 
-Before running the project, make sure you have:
-
-- Node.js 20+ recommended
-- npm
-- Either:
-- a PostgreSQL database with a valid `DATABASE_URL`
-- or the ability to install the SQLite dependency and run the local SQLite file backend
+- **Node.js** 20+ (recommended)
+- **npm**
+- **Database:** PostgreSQL (for production or shared dev) or SQLite (for local dev; no server required)
 
 ## Installation
 
@@ -58,154 +67,171 @@ Before running the project, make sure you have:
 npm install
 ```
 
-This project uses `patch-package`, so the postinstall script will apply local patches automatically.
+This project uses `patch-package`; the postinstall script applies patches automatically.
 
 ## Environment Variables
 
-For Postgres:
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string (e.g. `postgres://USER:PASSWORD@HOST:PORT/DB_NAME`). Omit to use SQLite. |
+| `EXPO_PUBLIC_DOMAIN` | Backend host for the frontend (e.g. `localhost:5000`). |
+| `DB_PROVIDER` | Set to `sqlite` to force SQLite when you have no `DATABASE_URL`. |
+| `SQLITE_DB_PATH` | Optional path for SQLite file (default: `.local/byuconnect.sqlite`). |
+| `NODE_ENV` | `development` or `production`. |
 
-```bash
-DATABASE_URL=postgres://USER:PASSWORD@HOST:PORT/DB_NAME
-```
+## Running Locally
 
-Helpful development variables:
+1. **Start the backend** (in one terminal):
 
-```bash
-NODE_ENV=development
-EXPO_PUBLIC_DOMAIN=localhost:5000
-```
+   ```bash
+   npm run server:dev
+   ```
 
-Notes:
+   For SQLite-backed backend:
 
-- `DATABASE_URL` is required for the backend and Drizzle.
-- If `DATABASE_URL` is not set, the backend now falls back to SQLite by default.
-- SQLite uses `DB_PROVIDER=sqlite` and stores data in `.local/byuconnect.sqlite` unless `SQLITE_DB_PATH` is set.
-- `EXPO_PUBLIC_DOMAIN` is used by the frontend to build the backend URL.
+   ```bash
+   npm run server:sqlite:dev
+   ```
 
-## Running the App Locally
+2. **Start Expo** (in a second terminal):
 
-This repo has two parts you should run together:
+   ```bash
+   npm run start
+   ```
 
-1. The Express backend
-2. The Expo frontend
+3. **Open the app:**
+   - **Web:** press `w` in the Expo terminal
+   - **iOS:** press `i` (simulator)
+   - **Android:** press `a` (emulator)
 
-Start the backend:
+   **Note:** Do not use the QR code to open the app on a physical device. The app is not configured for multiple devices (e.g. the backend is set up for a single machine), so use web or a simulator/emulator on the same computer instead.
 
-```bash
-npm run server:dev
-```
-
-For an explicit SQLite-backed backend:
-
-```bash
-npm run server:sqlite:dev
-```
-
-In a second terminal, start Expo:
-
-```bash
-npm run start
-```
-
-Then open the app in whichever target you want:
-
-- Web: press `w` in the Expo terminal
-- iOS simulator: press `i`
-- Android emulator: press `a`
-- Physical device: scan the QR code in Expo
+**Production deployment**
+Running locally on local machines.
 
 ## Database Setup
 
-You can use either **PostgreSQL** (for production or shared dev) or **SQLite** (easiest for local development). The schema is defined in `shared/schema.ts`.
+Schema is defined in `shared/schema.ts`.
 
-### Option 1: SQLite (local development, no extra setup)
+### Option 1: SQLite (easiest for local)
 
-1. **No database server needed.** Install dependencies and set the backend to use SQLite.
-2. In your `.env`, set (or leave unset to use SQLite when `DATABASE_URL` is missing):
+1. No database server needed. Set in `.env` (or leave `DATABASE_URL` unset):
+
    ```bash
    DB_PROVIDER=sqlite
    NODE_ENV=development
    EXPO_PUBLIC_DOMAIN=localhost:5000
    ```
-3. Start the backend (e.g. `npm run server:sqlite:dev` or `npm run server:dev` if `DATABASE_URL` is not set).
-4. On first run, the backend creates `.local/byuconnect.sqlite`, applies the schema, and seeds it automatically. No `db:push` step required.
 
-To use a different file path, set `SQLITE_DB_PATH` in `.env`.
+2. Start the backend (`npm run server:sqlite:dev` or `npm run server:dev`). On first run it creates `.local/byuconnect.sqlite`, applies the schema, and seeds.
+
+Optional: set `SQLITE_DB_PATH` for a different file path.
 
 ### Option 2: PostgreSQL
 
-1. **Create a PostgreSQL database** (locally or on a host) and note the connection details.
-2. In your `.env`, set:
+1. Create a PostgreSQL database and set in `.env`:
+
    ```bash
    DATABASE_URL=postgres://USER:PASSWORD@HOST:PORT/DB_NAME
    NODE_ENV=development
    EXPO_PUBLIC_DOMAIN=localhost:5000
    ```
-3. Push the Drizzle schema to the database:
+
+2. Push the schema:
+
    ```bash
    npm run db:push
    ```
-4. (Optional) Seed data is in `lib/data/seed-data.ts` and `server/seed.ts`. Review those files and run the seed flow that matches your environment if you want initial clubs, events, etc.
 
-### Summary
+3. Optionally seed: see `lib/data/seed-data.ts` and `server/seed.ts`.
 
-| Setup        | Steps |
-|-------------|--------|
-| **SQLite**  | Set `DB_PROVIDER=sqlite` (or omit `DATABASE_URL`), then start the backend. Schema and seed are created automatically. |
-| **PostgreSQL** | Set `DATABASE_URL`, run `npm run db:push`, then start the backend. Seed manually if desired. |
+| Setup | Steps |
+|-------|--------|
+| **SQLite** | Set `DB_PROVIDER=sqlite` or omit `DATABASE_URL`, then start the backend. |
+| **PostgreSQL** | Set `DATABASE_URL`, run `npm run db:push`, then start the backend. |
 
-## Available Scripts
+## Scripts
 
-- `npm run start` - start Expo in development
-- `npm run server:dev` - run the Express backend in development
-- `npm run server:sqlite:dev` - run the Express backend with the SQLite provider
-- `npm run db:push` - push the Drizzle schema to the database
-- `npm run lint` - run Expo lint
-- `npm run lint:fix` - run lint with autofixes
-- `npm run expo:static:build` - build the Expo static output
-- `npm run expo:start:static:build` - start Expo in production-like static mode
-- `npm run server:build` - bundle the backend into `server_dist/`
-- `npm run server:prod` - run the production backend bundle
+| Script | Description |
+|--------|-------------|
+| `npm run start` | Start Expo in development |
+| `npm run server:dev` | Run Express backend (uses `DATABASE_URL` or SQLite fallback) |
+| `npm run server:sqlite:dev` | Run Express backend with SQLite |
+| `npm run db:push` | Push Drizzle schema to the database |
+| `npm run lint` | Run Expo lint |
+| `npm run lint:fix` | Lint with autofixes |
+| `npm run expo:static:build` | Build Expo static output (e.g. for web deploy) |
+| `npm run expo:start:static:build` | Start Expo in production-like static mode |
+| `npm run server:build` | Bundle backend into `server_dist/` |
+| `npm run server:prod` | Run the production backend bundle |
 
 ## App Routes
 
-Main app areas:
+- **Home (Discover):** `(tabs)/(home)` – map/list of events, event detail, club detail, search, create event
+- **Clubs:** `(tabs)/(clubs)` – clubs list and discovery
+- **Profile:** `(tabs)/(profile)` – profile, saved events, reservations, notifications
+- **Auth:** `(auth)` – login, register
 
-- `app/(tabs)/(home)/` - Discover flow, event details, club details, search, create event
-- `app/(tabs)/(clubs)/` - My Clubs and club discovery
-- `app/(tabs)/(profile)/` - Profile and notifications
-- `app/(auth)/` - Login and registration
+## Backend API Summary
 
-## Backend Overview
+Base URL: use `EXPO_PUBLIC_DOMAIN` (e.g. `http://localhost:5000`). All JSON where applicable.
 
-**Authentication:** Login (`POST /api/auth/login`) and register (`POST /api/auth/register`) set the session. On first login, if no user exists for the given email, a profile is created in the database when the request includes a name (optional name field on the login screen). Existing users sign in with email and password only.
+| Group | Method | Path | Notes |
+|-------|--------|------|--------|
+| **Auth** | POST | `/api/auth/register` | Register (optional name creates profile) |
+| | POST | `/api/auth/login` | Login, sets session |
+| | GET | `/api/auth/me` | Current user |
+| | POST | `/api/auth/logout` | Logout |
+| **Buildings** | GET | `/api/buildings` | List buildings |
+| **Categories** | GET | `/api/categories` | List categories |
+| **Clubs** | GET | `/api/clubs` | List clubs |
+| | GET | `/api/clubs/:id` | Club by id |
+| | POST | `/api/clubs` | Create club (auth) |
+| | PATCH | `/api/clubs/:id/profile-image` | Update club profile image (auth) |
+| | PATCH | `/api/clubs/:id/cover-image` | Update club cover image (auth) |
+| **Events** | GET | `/api/events` | List events |
+| | GET | `/api/events/:id` | Event by id |
+| | POST | `/api/events` | Create event (auth) |
+| | PATCH | `/api/events/:id/cover-image` | Update event cover image (auth) |
+| **Memberships** | GET | `/api/memberships` | Current user’s memberships (auth) |
+| | POST | `/api/memberships` | Join club (auth) |
+| | DELETE | `/api/memberships/:clubId` | Leave club (auth) |
+| **Saves** | GET | `/api/saves` | Current user’s saved events (auth) |
+| | POST | `/api/saves` | Save event (auth) |
+| | DELETE | `/api/saves/:eventId` | Unsave event (auth) |
+| **Reservations** | GET | `/api/reservations` | Current user’s reservations (auth) |
+| | POST | `/api/reservations` | Reserve event (auth) |
+| | DELETE | `/api/reservations/:eventId` | Cancel reservation (auth) |
+| **Announcements** | GET | `/api/announcements` | By club (query: clubId) |
+| | POST | `/api/announcements` | Create (auth) |
+| **Notifications** | GET | `/api/notifications` | Current user’s notifications (auth) |
+| | PATCH | `/api/notifications/:id/read` | Mark read (auth) |
+| **Map** | GET | `/api/map` | Map-related data / template |
 
-Important backend files:
+## Key Backend Files
 
-- `server/index.ts` - Express entry point
-- `server/routes.ts` - REST API routes
-- `server/storage.ts` - storage layer and data operations
-- `server/db.ts` - database connection setup
-- `server/templates/` - HTML templates for special server-rendered pages like the map
+- `server/index.ts` – Express app, session, static assets, route registration
+- `server/routes.ts` – All REST API route handlers
+- `server/storage.ts` – Data access layer
+- `server/db.ts` – Database connection (Postgres)
+- `server/sqlite.ts` – SQLite provider
+- `server/seed.ts` – Seeding logic
+- `server/templates/` – HTML templates (e.g. map)
 
-## Design Notes
+## Design / UX
 
-- The app is now responsive for both desktop browsers and mobile devices.
-- Mobile remains the primary target, so touch-first interactions and compact layouts are preserved.
-- Shared responsive behavior lives in `lib/ui/responsive.ts`.
-- Shared page framing and background treatment lives in `components/layout/PageShell.tsx`.
+- **Responsive:** `lib/ui/responsive.ts` for breakpoints and layout (mobile vs desktop).
+- **PageShell:** `components/layout/PageShell.tsx` for consistent page framing and background.
+- **Mobile-first:** Touch-first interactions and compact layouts; desktop gets expanded layouts where applicable.
 
 ## Troubleshooting
 
-### Expo starts but the app cannot reach the backend
+### App cannot reach the backend
 
-Make sure:
+- Ensure the backend is running (`npm run server:dev` or `npm run server:sqlite:dev`).
+- For web, ensure `EXPO_PUBLIC_DOMAIN` matches the backend host and port.
 
-- `npm run server:dev` is running
-- `EXPO_PUBLIC_DOMAIN` points to the backend host when using web
-- your backend port matches what the frontend expects
-
-### Lint or app startup fails because packages are missing
+### Lint or install failures
 
 Run:
 
@@ -213,10 +239,29 @@ Run:
 npm install
 ```
 
-### Database errors on startup
+### Database errors
 
-Check:
+- **PostgreSQL:** Check `DATABASE_URL`, that Postgres is running, and that you ran `npm run db:push`.
+- **SQLite:** Ensure the app has write access to the directory used for `SQLITE_DB_PATH` (or `.local/`).
 
-- `DATABASE_URL` is set correctly
-- PostgreSQL is running
-- the schema has been pushed with `npm run db:push`
+## Contributing
+
+This project is developed by Teams 5 and 8 of section 3 of the BYU IS Jr. Core for the Winter 2026 semester.(e.g. repo URL: https://github.com/trottdog/IS401Product, team/course info).
+
+## Note for Windows users
+
+The npm scripts `server:dev` and `server:sqlite:dev` set environment variables using Unix-style syntax (`VAR=value command`). **PowerShell and Windows Command Prompt do not support this**, so running `npm run server:dev` or `npm run server:sqlite:dev` on Windows will fail with errors like `'NODE_ENV' is not recognized as an internal or external command`.
+
+**Workaround:** Start the backend from PowerShell by setting the environment variables first, then running Node:
+
+- **Default backend** (PostgreSQL if `DATABASE_URL` is set, otherwise SQLite):
+  ```powershell
+  $env:NODE_ENV="development"; node --import tsx server/index.ts
+  ```
+- **SQLite-only backend:**
+  ```powershell
+  $env:DB_PROVIDER="sqlite"; $env:NODE_ENV="development"; node --import tsx server/index.ts
+  ```
+
+Alternatively, the project can be updated to use a cross-platform package (e.g. `cross-env`) so that the same `npm run` scripts work on Windows; the instructions above are the manual workaround until then.
+

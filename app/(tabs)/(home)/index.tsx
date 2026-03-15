@@ -6,6 +6,7 @@ import { router, useFocusEffect } from "expo-router";
 import Colors from "@/lib/theme/colors";
 import { useAuth } from "@/lib/auth/auth-context";
 import { Event, Club, Building, EventSave, getTimeLabel, getTimeLabelColor, formatEventTime, formatEventDate } from "@/lib/types";
+import { sortEventsByDateAndTime } from "@/lib/utils/events";
 import * as store from "@/lib/api/store";
 import { EventCard } from "@/components/cards/EventCard";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
@@ -68,19 +69,10 @@ export default function DiscoverScreen() {
 
   const sortedEvents = useMemo(() => {
     const now = new Date();
-    return [...events]
-      .filter(e => !e.isCancelled && new Date(e.endTime) > now)
-      .sort((a, b) => {
-        const aStart = new Date(a.startTime);
-        const bStart = new Date(b.startTime);
-        const aEnd = new Date(a.endTime);
-        const bEnd = new Date(b.endTime);
-        const aNow = now >= aStart && now <= aEnd;
-        const bNow = now >= bStart && now <= bEnd;
-        if (aNow && !bNow) return -1;
-        if (!aNow && bNow) return 1;
-        return aStart.getTime() - bStart.getTime();
-      });
+    const filtered = events.filter(e => !e.isCancelled && new Date(e.endTime) > now);
+    const happeningNow = filtered.filter(e => now >= new Date(e.startTime) && now <= new Date(e.endTime));
+    const rest = filtered.filter(e => !(now >= new Date(e.startTime) && now <= new Date(e.endTime)));
+    return [...happeningNow, ...sortEventsByDateAndTime(rest)];
   }, [events]);
 
   const buildingEventCounts = useMemo(() => {
@@ -97,7 +89,8 @@ export default function DiscoverScreen() {
   const buildingEvents = useMemo(() => {
     if (!selectedBuilding) return [];
     const now = new Date();
-    return sortedEvents.filter(e => e.buildingId === selectedBuilding && new Date(e.endTime) > now);
+    const list = sortedEvents.filter(e => e.buildingId === selectedBuilding && new Date(e.endTime) > now);
+    return sortEventsByDateAndTime(list);
   }, [selectedBuilding, sortedEvents]);
 
   const getClub = (id: string) => clubs.find(c => c.id === id);

@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import Colors from "@/lib/theme/colors";
 import { useAuth } from "@/lib/auth/auth-context";
 import { Club, Category, Event, ClubMembership, Announcement, Building } from "@/lib/types";
+import { sortEventsByDateAndTime } from "@/lib/utils/events";
 import * as store from "@/lib/api/store";
 import { EventCard } from "@/components/cards/EventCard";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
@@ -47,8 +48,7 @@ export default function ClubProfileScreen() {
         setCategory(cats.find(cat => cat.id === c.categoryId) || null);
       }
       const now = new Date();
-      setEvents(e.filter(ev => ev.clubId === id && !ev.isCancelled && new Date(ev.endTime) > now)
-        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()));
+      setEvents(sortEventsByDateAndTime(e.filter(ev => ev.clubId === id && !ev.isCancelled && new Date(ev.endTime) > now)));
       setBuildings(b);
       setClubs(allClubs);
       setAnnouncements(ann);

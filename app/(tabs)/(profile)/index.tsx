@@ -6,6 +6,7 @@ import { router, useFocusEffect } from "expo-router";
 import Colors from "@/lib/theme/colors";
 import { useAuth } from "@/lib/auth/auth-context";
 import { EventSave, Reservation, Event, Club, Building } from "@/lib/types";
+import { sortEventsByDateAndTime } from "@/lib/utils/events";
 import * as store from "@/lib/api/store";
 import { EventCard } from "@/components/cards/EventCard";
 import * as Haptics from "expo-haptics";
@@ -63,8 +64,8 @@ export default function ProfileScreen() {
 
   const savedEventIds = new Set(saves.map(s => s.eventId));
   const reservedEventIds = new Set(reservations.map(r => r.eventId));
-  const savedEvents = events.filter(e => savedEventIds.has(e.id));
-  const reservedEvents = events.filter(e => reservedEventIds.has(e.id));
+  const savedEvents = sortEventsByDateAndTime(events.filter(e => savedEventIds.has(e.id)));
+  const reservedEvents = sortEventsByDateAndTime(events.filter(e => reservedEventIds.has(e.id)));
 
   const getClub = (id: string) => clubs.find(c => c.id === id);
   const getBuilding = (id: string) => buildings.find(b => b.id === id);

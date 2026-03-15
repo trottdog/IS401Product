@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import Colors from "@/lib/theme/colors";
 import { Event, Club, Building, Category } from "@/lib/types";
+import { sortEventsByDateAndTime } from "@/lib/utils/events";
 import * as store from "@/lib/api/store";
 import { EventCard } from "@/components/cards/EventCard";
 import { ClubCard } from "@/components/cards/ClubCard";
@@ -46,7 +47,7 @@ export default function SearchScreen() {
   const filteredEvents = useMemo(() => {
     if (!q) return [];
     const now = new Date();
-    return events
+    const filtered = events
       .filter(e => !e.isCancelled && new Date(e.endTime) > now)
       .filter(e => {
         const club = clubs.find(c => c.id === e.clubId);
@@ -59,8 +60,8 @@ export default function SearchScreen() {
           building?.name.toLowerCase().includes(q) ||
           building?.abbreviation.toLowerCase().includes(q)
         );
-      })
-      .slice(0, 20);
+      });
+    return sortEventsByDateAndTime(filtered).slice(0, 20);
   }, [q, events, clubs, buildings]);
 
   const filteredClubs = useMemo(() => {
