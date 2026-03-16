@@ -2,6 +2,9 @@
   "name": "expo-app",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "engines": {
+    "node": ">=20 <21"
+  },
   "scripts": {
     "postinstall": "patch-package",
     "server:dev": "NODE_ENV=development node --import tsx server/index.ts",

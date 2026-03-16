@@ -117,6 +117,10 @@ This project uses `patch-package`; the postinstall script applies patches automa
 - Start production backend with `npm run server:prod`.
 - Ensure `NODE_ENV=production`, `SESSION_SECRET`, and DB settings are configured.
 
+## AWS Deployment
+
+For an AWS Elastic Beanstalk deployment walkthrough for this repository, see [docs/aws-elastic-beanstalk.md](docs/aws-elastic-beanstalk.md).
+
 ## Database Setup
 
 Schema is defined in `shared/schema.ts`.
@@ -157,6 +161,52 @@ Optional: set `SQLITE_DB_PATH` for a different file path.
 |-------|--------|
 | **SQLite** | Set `DB_PROVIDER=sqlite` or omit `DATABASE_URL`, then start the backend. |
 | **PostgreSQL** | Set `DATABASE_URL`, run `npm run db:push`, then start the backend. |
+
+## Requirements Checklist (EARS Format)
+
+Tracked implementation status against [Project Charter](./Project%20Charter%20_%20BYU%20Pizza%20Index.docx.md) requirements.
+
+### Ubiquitous Requirements
+
+- [x] **UR-01** — BYU student authentication (login/register with session-based auth)
+- [x] **UR-02** — Event feed (ranked list of upcoming on-campus events)
+- [x] **UR-03** — Event details page (click event to view full info)
+- [x] **UR-04** — Create event (authenticated users can post events)
+- [x] **UR-05** — Event fields (title, start time, end time, location, category, description)
+- [x] **UR-06** — Filters (by time window and category)
+- [ ] **UR-07** — Freshness (hide/deprioritize expired events)
+
+### Event-Driven Requirements
+
+- [x] **UR-08** — Publish (valid event form creates published event in feed)
+- [x] **UR-09** — Validation (invalid form shows errors, prevents publish)
+- [ ] **UR-10** — Report event (users can report; event removed from reporter's feed)
+- [ ] **UR-11** — Admin moderation (flagged events after report threshold)
+- [ ] **UR-12** — Remove content (admins can remove events with audit trail)
+
+### State-Driven Requirements
+
+- [ ] **UR-13** — Draft vs published (only creator sees draft events)
+- [x] **UR-14** — Published visibility (all authenticated users see published events)
+- [ ] **UR-15** — Expired events (excluded from default feed results)
+
+### Optional Features
+
+- [x] **UR-16** — Save/bookmark events
+- [x] **UR-17** — Saved events list
+- [ ] **UR-18** — Calendar export (ICS download)
+- [x] **UR-19** — Image upload (one image per event on detail view)
+
+### Safety & Quality
+
+- [ ] **UR-20** — Rate limiting (prevent posting spam)
+- [ ] **UR-21** — Spam detection (block/flag low-quality posts)
+
+### ML & Analytics
+
+- [ ] **UR-22** — Interaction logging (views, saves, add-to-calendar)
+- [ ] **UR-23** — Ranking signals (use engagement data in feed ranking)
+- [ ] **UR-24** — Model scoring (store and use ML scores for ranking)
 
 ## Scripts
 
