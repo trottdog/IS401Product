@@ -1,0 +1,6 @@
+.expo/
+.git/
+.local/
+node_modules/
+static-build/
+server_dist/

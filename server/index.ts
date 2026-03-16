@@ -9,10 +9,28 @@ import * as path from "path";
 
 const app = express();
 const log = console.log;
+const isProduction = process.env.NODE_ENV === "production";
 
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
+  }
+}
+
+function configureRuntime(app: express.Application) {
+  if (process.env.TRUST_PROXY) {
+    const trustProxyValue = process.env.TRUST_PROXY.trim();
+    const parsedTrustProxy = Number.parseInt(trustProxyValue, 10);
+
+    app.set(
+      "trust proxy",
+      Number.isNaN(parsedTrustProxy) ? trustProxyValue : parsedTrustProxy,
+    );
+    return;
+  }
+
+  if (isProduction) {
+    app.set("trust proxy", 1);
   }
 }
 
@@ -231,18 +249,20 @@ function setupErrorHandler(app: express.Application) {
 }
 
 function setupSessions(app: express.Application) {
+  const sessionCookie = {
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: "lax" as const,
+  };
+
   if (dbProvider === "sqlite") {
     app.use(
       session({
         secret: process.env.SESSION_SECRET || "byuconnect-dev-secret",
         resave: false,
         saveUninitialized: false,
-        cookie: {
-          maxAge: 30 * 24 * 60 * 60 * 1000,
-          httpOnly: true,
-          secure: false,
-          sameSite: "lax",
-        },
+        cookie: sessionCookie,
       }),
     );
     return;
@@ -259,17 +279,13 @@ function setupSessions(app: express.Application) {
       secret: process.env.SESSION_SECRET || "byuconnect-dev-secret",
       resave: false,
       saveUninitialized: false,
-      cookie: {
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-        httpOnly: true,
-        secure: false,
-        sameSite: "lax",
-      },
+      cookie: sessionCookie,
     }),
   );
 }
 
 (async () => {
+  configureRuntime(app);
   setupCors(app);
   setupBodyParsing(app);
   setupSessions(app);
@@ -282,7 +298,7 @@ function setupSessions(app: express.Application) {
   setupErrorHandler(app);
 
   const port = parseInt(process.env.PORT || "5000", 10);
-  const host = process.env.HOST || "127.0.0.1";
+  const host = process.env.HOST || (isProduction ? "0.0.0.0" : "127.0.0.1");
   server.listen(
     {
       port,

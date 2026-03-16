@@ -117,6 +117,10 @@ This project uses `patch-package`; the postinstall script applies patches automa
 - Start production backend with `npm run server:prod`.
 - Ensure `NODE_ENV=production`, `SESSION_SECRET`, and DB settings are configured.
 
+## AWS Deployment
+
+For an AWS Elastic Beanstalk deployment walkthrough for this repository, see [docs/aws-elastic-beanstalk.md](docs/aws-elastic-beanstalk.md).
+
 ## Database Setup
 
 Schema is defined in `shared/schema.ts`.
