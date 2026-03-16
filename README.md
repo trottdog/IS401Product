@@ -77,6 +77,10 @@ This project uses `patch-package`; the postinstall script applies patches automa
 | `EXPO_PUBLIC_DOMAIN` | Backend host for the frontend (e.g. `localhost:5000`). |
 | `DB_PROVIDER` | Set to `sqlite` to force SQLite when you have no `DATABASE_URL`. |
 | `SQLITE_DB_PATH` | Optional path for SQLite file (default: `.local/byuconnect.sqlite`). |
+| `CORS_ORIGIN` | Optional explicit allowed web origin for CORS (in addition to localhost origins). |
+| `SESSION_SECRET` | Optional session signing secret (defaults to a development secret if unset). |
+| `HOST` | Backend bind host (default: `127.0.0.1`). |
+| `PORT` | Backend bind port (default: `5000`). |
 | `NODE_ENV` | `development` or `production`. |
 
 ## Running Locally
@@ -106,8 +110,12 @@ This project uses `patch-package`; the postinstall script applies patches automa
 
    **Note:** Do not use the QR code to open the app on a physical device. The app is not configured for multiple devices (e.g. the backend is set up for a single machine), so use web or a simulator/emulator on the same computer instead.
 
-**Production deployment**
-Running locally on local machines.
+## Production Notes
+
+- Build Expo static output with `npm run expo:static:build`.
+- Build backend bundle with `npm run server:build`.
+- Start production backend with `npm run server:prod`.
+- Ensure `NODE_ENV=production`, `SESSION_SECRET`, and DB settings are configured.
 
 ## Database Setup
 
@@ -164,6 +172,7 @@ Optional: set `SQLITE_DB_PATH` for a different file path.
 | `npm run expo:start:static:build` | Start Expo in production-like static mode |
 | `npm run server:build` | Bundle backend into `server_dist/` |
 | `npm run server:prod` | Run the production backend bundle |
+| `npm run postinstall` | Apply patch-package patches manually (usually automatic) |
 
 ## App Routes
 
@@ -247,6 +256,10 @@ npm install
 ## Contributing
 
 This project is developed by Teams 5 and 8 of section 3 of the BYU IS Jr. Core for the Winter 2026 semester.(e.g. repo URL: https://github.com/trottdog/IS401Product, team/course info).
+
+## Agent Guidance
+
+See `agents.md` for repository-specific instructions for coding agents and automation helpers.
 
 ## Note for Windows users
 

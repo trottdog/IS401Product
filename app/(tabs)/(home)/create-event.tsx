@@ -48,7 +48,10 @@ export default function CreateEventScreen() {
 
   useEffect(() => {
     (async () => {
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       const [allClubs, allBuildings, allCategories, userMemberships] = await Promise.all([
         store.getClubs(),
         store.getBuildings(),
@@ -143,6 +146,23 @@ export default function CreateEventScreen() {
       <PageShell>
         <View style={[styles.loadingContainer, { paddingTop: topInset }]}>
           <ActivityIndicator size="large" color={Colors.light.tint} />
+        </View>
+      </PageShell>
+    );
+  }
+
+  if (!user) {
+    return (
+      <PageShell>
+        <View style={[styles.loadingContainer, { paddingTop: topInset, paddingHorizontal: 24 }]}> 
+          <Text style={styles.signInTitle}>Sign in required</Text>
+          <Text style={styles.signInSubtitle}>You need an account to create and publish events.</Text>
+          <Pressable
+            onPress={() => router.replace("/(auth)/login")}
+            style={styles.signInButton}
+          >
+            <Text style={styles.signInButtonText}>Go to Sign In</Text>
+          </Pressable>
         </View>
       </PageShell>
     );
@@ -528,6 +548,31 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center" as const,
     alignItems: "center" as const,
+  },
+  signInTitle: {
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    color: Colors.light.text,
+    marginBottom: 8,
+    textAlign: "center" as const,
+  },
+  signInSubtitle: {
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    color: Colors.light.textSecondary,
+    textAlign: "center" as const,
+    marginBottom: 20,
+  },
+  signInButton: {
+    backgroundColor: Colors.light.tint,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  signInButtonText: {
+    color: "#FFF",
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
   },
   topBar: {
     flexDirection: "row" as const,

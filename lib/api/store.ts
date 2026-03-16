@@ -196,6 +196,9 @@ export async function createEvent(event: any): Promise<any> {
     method: "POST",
     body: JSON.stringify(event),
   });
+  if (!res.ok) {
+    throw new Error(await getErrorMessage(res, "Failed to create event"));
+  }
   return res.json();
 }
 
