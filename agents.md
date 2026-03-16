@@ -1,51 +1,85 @@
-# Agents Guide
+## Elastic Beanstalk Packaging Process
 
-This file provides practical guidance for coding agents working in this repository.
+Use this process to create a Beanstalk upload zip that is safe for Amazon Linux deployment.
 
-## Project Snapshot
+### Goals
 
-- App: Expo Router + React Native (mobile and web)
-- Backend: Express + TypeScript in `server/`
-- Data: Drizzle ORM with PostgreSQL or SQLite
-- Shared schema: `shared/schema.ts`
+- Build a source bundle from repository files only
+- Exclude local artifacts and large generated folders
+- Ensure `.platform` hooks are included
+- Ensure zip entry paths use forward slashes
 
-## Common Commands
+### Exclusions
 
-- Install dependencies: `npm install`
-- Start Expo dev server: `npm run start`
-- Start backend (default provider selection): `npm run server:dev`
-- Start backend with SQLite: `npm run server:sqlite:dev`
-- Push schema changes: `npm run db:push`
-- Lint: `npm run lint`
-- Build static Expo output: `npm run expo:static:build`
-- Build backend bundle: `npm run server:build`
-- Run production backend bundle: `npm run server:prod`
+Exclude these directories from the archive:
 
-## Windows Notes
+- `.git`
+- `.expo`
+- `.local`
+- `node_modules`
+- `static-build`
+- `server_dist`
 
-The `server:dev` and `server:sqlite:dev` npm scripts use Unix-style environment variable syntax and can fail in PowerShell/CMD.
+Also exclude existing `*.zip` files so old bundles are not nested into the new bundle.
 
-Use one of these commands in PowerShell instead:
+### Packaging Command Pattern (PowerShell)
 
-- Default backend mode:
-  - `$env:NODE_ENV="development"; node --import tsx server/index.ts`
-- SQLite mode:
-  - `$env:DB_PROVIDER="sqlite"; $env:NODE_ENV="development"; node --import tsx server/index.ts`
+```powershell
+$ErrorActionPreference='Stop'
+$root='c:\Users\GeorgeColinRamsay\Documents\GitHub\IS401Product'
+$zip='c:\Users\GeorgeColinRamsay\Documents\GitHub\IS401Product\IS401Product-beanstalk-upload.zip'
 
-## Key Runtime Files
+if(Test-Path $zip){Remove-Item $zip -Force}
 
-- Backend entry: `server/index.ts`
-- API routes: `server/routes.ts`
-- Data layer: `server/storage.ts`
-- DB provider setup: `server/db.ts` and `server/sqlite.ts`
-- App routes: `app/`
-- Auth flow: `lib/auth/auth-context.tsx`
-- Frontend API access: `lib/api/store.ts`
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-## Agent Editing Rules
+$exclude=@('\\.git\\','\\.expo\\','\\.local\\','\\node_modules\\','\\static-build\\','\\server_dist\\')
 
-- Prefer minimal, targeted edits.
-- Do not change public behavior unless requested.
-- Keep TypeScript types intact and avoid `any` where possible.
-- Update docs when behavior, commands, or environment variables change.
-- If adding routes or scripts, also update `README.md`.
+$files=Get-ChildItem -Path $root -Recurse -File -Force | Where-Object {
+	$p=$_.FullName
+	if($_.Name -like '*.zip'){ return $false }
+	foreach($x in $exclude){ if($p -match [regex]::Escape($x)){ return $false } }
+	return $true
+}
+
+$archive=[System.IO.Compression.ZipFile]::Open($zip,[System.IO.Compression.ZipArchiveMode]::Create)
+try {
+	foreach($f in $files){
+		$entry=$f.FullName.Substring($root.Length+1).Replace('\\','/')
+		[System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive,$f.FullName,$entry,[System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+	}
+} finally {
+	$archive.Dispose()
+}
+```
+
+Why this pattern:
+
+- It preserves `.platform/hooks/prebuild/01_build_app.sh`
+- It avoids accidental omission of hidden dot directories
+- It normalizes zip entry separators for Linux environments
+
+### Validation Checklist
+
+After creating the zip, verify:
+
+1. The zip opens without errors.
+2. Required files are present:
+	 - `Procfile`
+	 - `.ebignore`
+	 - `.platform/hooks/prebuild/01_build_app.sh`
+	 - `package.json`
+	 - `package-lock.json`
+3. `package.json` in the zip includes deployment-critical settings:
+	 - `dependencies.patch-package`
+	 - `dependencies.esbuild`
+	 - a non-fatal `postinstall` fallback message for missing patch-package
+
+### Output Location
+
+Write the bundle into the workspace root as:
+
+- `IS401Product-beanstalk-upload.zip`
+
+This keeps the archive visible in VS Code and ready for direct Beanstalk upload.

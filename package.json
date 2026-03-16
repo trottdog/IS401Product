@@ -6,12 +6,12 @@
     "node": ">=20 <21"
   },
   "scripts": {
-    "postinstall": "patch-package",
+    "postinstall": "node -e \"const cp=require('node:child_process');const result=cp.spawnSync('patch-package',{stdio:'inherit',shell:true});if(result.error||result.status!==0){console.log('patch-package not available in this install; continuing without applying patches.');}\"",
     "server:dev": "NODE_ENV=development node --import tsx server/index.ts",
     "server:sqlite:dev": "DB_PROVIDER=sqlite NODE_ENV=development node --import tsx server/index.ts",
     "expo:start:static:build": "npx expo start --no-dev --minify --localhost",
     "expo:static:build": "node scripts/build.js",
-    "server:build": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=server_dist",
+    "server:build": "esbuild server/index.ts --platform=node --packages=external --bundle --format=cjs --outdir=server_dist",
     "server:prod": "NODE_ENV=production node server_dist/index.js",
     "db:push": "drizzle-kit push",
     "start": "npx expo start",
@@ -49,6 +49,7 @@
     "expo-symbols": "~1.0.8",
     "expo-system-ui": "~6.0.9",
     "expo-web-browser": "~15.0.10",
+    "esbuild": "^0.25.9",
     "express": "^5.0.1",
     "express-session": "^1.19.0",
     "http-proxy-middleware": "^3.0.5",
@@ -65,6 +66,7 @@
     "react-native-web": "^0.21.0",
     "react-native-webview": "^13.16.0",
     "react-native-worklets": "0.5.1",
+    "patch-package": "^8.0.0",
     "tsx": "^4.20.6",
     "ws": "^8.18.0",
     "zod": "^3.24.2",
@@ -80,7 +82,6 @@
     "drizzle-kit": "^0.31.4",
     "eslint": "^9.31.0",
     "eslint-config-expo": "~10.0.0",
-    "patch-package": "^8.0.0",
     "typescript": "~5.9.2"
   },
   "private": true
