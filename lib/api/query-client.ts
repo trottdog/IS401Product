@@ -6,6 +6,9 @@ import { Platform } from "react-native";
  * Gets the base URL for the Express API server (e.g., "http://localhost:3000")
  * @returns {string} The API base URL
  */
+
+/** Gets the base URL for the Express API servier (e.g., "http://localhost:300") */
+
 export function getApiUrl(): string {
   const configured = process.env.EXPO_PUBLIC_DOMAIN?.trim();
 
