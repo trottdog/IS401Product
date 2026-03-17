@@ -11,7 +11,7 @@
     "server:sqlite:dev": "node --import tsx server/index.ts",
     "expo:start:static:build": "npx expo start --no-dev --minify --localhost",
     "expo:static:build": "node scripts/build.js",
-    "server:build": "node ./node_modules/esbuild/bin/esbuild server/index.ts --platform=node --packages=external --bundle --format=cjs --outdir=server_dist",
+    "server:build": "esbuild server/index.ts --platform=node --packages=external --bundle --format=cjs --outdir=server_dist",
     "server:prod": "node server_dist/index.js",
     "start": "npx expo start",
     "lint": "npx expo lint",

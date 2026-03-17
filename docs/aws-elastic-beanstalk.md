@@ -25,6 +25,7 @@ SQLite is acceptable here because this is a small school project and not a produ
 2. The root `start` script is for Expo development, not production.
 3. The static Expo build requires `EXPO_PUBLIC_DOMAIN` during deployment.
 4. Sessions are stored in SQLite, not in memory, so deployed logins survive process restarts on the same instance.
+5. The deploy hook builds both the server bundle and the Expo static output on the instance, which can exceed Elastic Beanstalk's default command timeout on smaller environments.
 
 ## Prerequisites
 
@@ -71,7 +72,7 @@ web: npm run server:prod
 
 ### 2. Build Hook
 
-The repository includes `.platform/hooks/prebuild/01_build_app.sh`:
+The repository includes `.platform/hooks/predeploy/01_build_app.sh`:
 
 ```bash
 #!/bin/bash
@@ -81,7 +82,7 @@ npm run server:build
 npm run expo:static:build
 ```
 
-This builds the backend bundle and the Expo static output on the instance before the app starts.
+This builds the backend bundle and the Expo static output on the instance after Elastic Beanstalk has set up the application and before the app starts.
 
 ### 3. Optional `.ebignore`
 
@@ -99,33 +100,37 @@ server_dist/
 
 ## Create the Beanstalk Environment
 
-### Option A: AWS Console
-
 1. Create a new Elastic Beanstalk application.
 2. Choose the Node.js 20 platform.
 3. For the simplest SQLite deployment, choose a single-instance environment.
 4. Configure the environment variables listed above.
 5. Deploy the application source bundle from this repository.
 
-### Option B: EB CLI
-
-Example flow:
-
-```bash
-eb init
-eb create byuconnect-demo
-eb setenv NODE_ENV=production SESSION_SECRET="replace-me" EXPO_PUBLIC_DOMAIN="your-env.us-west-2.elasticbeanstalk.com" SQLITE_DB_PATH="/var/app/current/.local/byuconnect.sqlite"
-eb deploy
-```
-
 ## Deployment Flow
 
 For each deploy, Beanstalk should:
 
 1. Install dependencies with `npm install`
-2. Run `.platform/hooks/prebuild/01_build_app.sh`
+2. Run `.platform/hooks/predeploy/01_build_app.sh`
 3. Start the app with the `Procfile` command
 4. Serve the web app and API from the same Node process
+
+## Deployment Timeout Configuration
+
+This repository includes `.ebextensions/01-deployment-timeouts.config` to request a shorter deployment timeout:
+
+- `aws:elasticbeanstalk:command` -> `Timeout: 300`
+
+Why this matters:
+
+- Elastic Beanstalk's effective default EC2 command timeout is about 14 minutes.
+- This app runs `npm install`, `npm run server:build`, and `npm run expo:static:build` during deployment.
+- With this file in place, Beanstalk will stop the deployment after 5 minutes instead.
+
+Important:
+
+- Settings applied directly to the environment in the AWS console, EB CLI, or AWS CLI take precedence over `.ebextensions`.
+- If your environment was created in the AWS console, you may need to update the timeout directly in the environment configuration for the new value to take effect.
 
 ## Health Check and Verification
 
@@ -179,6 +184,18 @@ Check Beanstalk logs and confirm both build steps completed:
 - `npm run expo:static:build`
 
 Also confirm the app started on the Beanstalk-provided `PORT`.
+
+### Deployment or environment update fails after about 14 minutes 45 seconds
+
+That timing usually indicates Elastic Beanstalk hit its default deployment command timeout.
+
+Check:
+
+- The environment contains `.ebextensions/01-deployment-timeouts.config`
+- The deployed source bundle includes `.platform/hooks/predeploy/01_build_app.sh`
+- The environment configuration is not overriding the timeout with the default value
+
+If the environment still times out, update the setting directly in Elastic Beanstalk so the instance command timeout is longer than the default.
 
 ### Sessions do not persist across app restarts
 
