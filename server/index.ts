@@ -1,15 +1,16 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
 import { registerRoutes } from "./routes";
-import { dbProvider, pool } from "./db";
 import * as fs from "fs";
 import * as path from "path";
+import { SqliteSessionStore, initializeSqliteDatabase } from "./sqlite";
 
 const app = express();
 const log = console.log;
 const isProduction = process.env.NODE_ENV === "production";
+
+initializeSqliteDatabase();
 
 declare module "http" {
   interface IncomingMessage {
@@ -256,26 +257,9 @@ function setupSessions(app: express.Application) {
     sameSite: "lax" as const,
   };
 
-  if (dbProvider === "sqlite") {
-    app.use(
-      session({
-        secret: process.env.SESSION_SECRET || "byuconnect-dev-secret",
-        resave: false,
-        saveUninitialized: false,
-        cookie: sessionCookie,
-      }),
-    );
-    return;
-  }
-
-  const PgSession = connectPgSimple(session);
   app.use(
     session({
-      store: new PgSession({
-        pool: pool!,
-        tableName: "session",
-        createTableIfMissing: true,
-      }),
+      store: new SqliteSessionStore(),
       secret: process.env.SESSION_SECRET || "byuconnect-dev-secret",
       resave: false,
       saveUninitialized: false,

@@ -1,176 +1,159 @@
+"use strict";
+var __create = Object.create;
 var __defProp = Object.defineProperty;
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
 };
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 
 // server/index.ts
-import express from "express";
-import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
+var import_express = __toESM(require("express"));
+var import_express_session2 = __toESM(require("express-session"));
 
 // server/routes.ts
-import { createServer } from "node:http";
-import * as path2 from "path";
-import * as fs2 from "fs";
+var import_node_http = require("node:http");
+var path2 = __toESM(require("path"));
+var fs2 = __toESM(require("fs"));
 
-// server/storage.ts
-import { eq, and, desc } from "drizzle-orm";
-
-// server/db.ts
-import { drizzle } from "drizzle-orm/node-postgres";
-import pg from "pg";
+// server/sqlite.ts
+var import_node_fs = __toESM(require("node:fs"));
+var import_node_path = __toESM(require("node:path"));
+var import_node_crypto = require("node:crypto");
+var import_better_sqlite3 = __toESM(require("better-sqlite3"));
+var import_express_session = __toESM(require("express-session"));
+var import_drizzle_orm2 = require("drizzle-orm");
 
 // shared/schema.ts
-var schema_exports = {};
-__export(schema_exports, {
-  announcements: () => announcements,
-  buildings: () => buildings,
-  categories: () => categories,
-  clubMemberships: () => clubMemberships,
-  clubs: () => clubs,
-  eventSaves: () => eventSaves,
-  events: () => events,
-  insertAnnouncementSchema: () => insertAnnouncementSchema,
-  insertClubSchema: () => insertClubSchema,
-  insertEventSchema: () => insertEventSchema,
-  insertUserSchema: () => insertUserSchema,
-  notifications: () => notifications,
-  reservations: () => reservations,
-  users: () => users
+var import_drizzle_orm = require("drizzle-orm");
+var import_pg_core = require("drizzle-orm/pg-core");
+var import_drizzle_zod = require("drizzle-zod");
+var users = (0, import_pg_core.pgTable)("users", {
+  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
+  email: (0, import_pg_core.text)("email").notNull().unique(),
+  name: (0, import_pg_core.text)("name").notNull(),
+  password: (0, import_pg_core.text)("password").notNull(),
+  profileImage: (0, import_pg_core.text)("profile_image"),
+  createdAt: (0, import_pg_core.timestamp)("created_at").defaultNow().notNull()
 });
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, doublePrecision } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-var users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: text("email").notNull().unique(),
-  name: text("name").notNull(),
-  password: text("password").notNull(),
-  profileImage: text("profile_image"),
-  createdAt: timestamp("created_at").defaultNow().notNull()
+var buildings = (0, import_pg_core.pgTable)("buildings", {
+  id: (0, import_pg_core.varchar)("id").primaryKey(),
+  name: (0, import_pg_core.text)("name").notNull(),
+  abbreviation: (0, import_pg_core.text)("abbreviation").notNull(),
+  latitude: (0, import_pg_core.doublePrecision)("latitude").notNull(),
+  longitude: (0, import_pg_core.doublePrecision)("longitude").notNull(),
+  address: (0, import_pg_core.text)("address").notNull()
 });
-var buildings = pgTable("buildings", {
-  id: varchar("id").primaryKey(),
-  name: text("name").notNull(),
-  abbreviation: text("abbreviation").notNull(),
-  latitude: doublePrecision("latitude").notNull(),
-  longitude: doublePrecision("longitude").notNull(),
-  address: text("address").notNull()
+var categories = (0, import_pg_core.pgTable)("categories", {
+  id: (0, import_pg_core.varchar)("id").primaryKey(),
+  name: (0, import_pg_core.text)("name").notNull(),
+  icon: (0, import_pg_core.text)("icon").notNull()
 });
-var categories = pgTable("categories", {
-  id: varchar("id").primaryKey(),
-  name: text("name").notNull(),
-  icon: text("icon").notNull()
+var clubs = (0, import_pg_core.pgTable)("clubs", {
+  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
+  name: (0, import_pg_core.text)("name").notNull(),
+  description: (0, import_pg_core.text)("description").notNull(),
+  categoryId: (0, import_pg_core.varchar)("category_id").notNull(),
+  memberCount: (0, import_pg_core.integer)("member_count").notNull().default(0),
+  imageColor: (0, import_pg_core.text)("image_color").notNull(),
+  contactEmail: (0, import_pg_core.text)("contact_email").notNull().default(""),
+  website: (0, import_pg_core.text)("website").notNull().default(""),
+  instagram: (0, import_pg_core.text)("instagram").notNull().default(""),
+  profileImage: (0, import_pg_core.text)("profile_image"),
+  coverImage: (0, import_pg_core.text)("cover_image")
 });
-var clubs = pgTable("clubs", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  description: text("description").notNull(),
-  categoryId: varchar("category_id").notNull(),
-  memberCount: integer("member_count").notNull().default(0),
-  imageColor: text("image_color").notNull(),
-  contactEmail: text("contact_email").notNull().default(""),
-  website: text("website").notNull().default(""),
-  instagram: text("instagram").notNull().default(""),
-  profileImage: text("profile_image"),
-  coverImage: text("cover_image")
+var events = (0, import_pg_core.pgTable)("events", {
+  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
+  title: (0, import_pg_core.text)("title").notNull(),
+  description: (0, import_pg_core.text)("description").notNull(),
+  clubId: (0, import_pg_core.varchar)("club_id").notNull(),
+  buildingId: (0, import_pg_core.varchar)("building_id").notNull(),
+  categoryId: (0, import_pg_core.varchar)("category_id").notNull(),
+  startTime: (0, import_pg_core.timestamp)("start_time").notNull(),
+  endTime: (0, import_pg_core.timestamp)("end_time").notNull(),
+  room: (0, import_pg_core.text)("room").notNull(),
+  hasLimitedCapacity: (0, import_pg_core.boolean)("has_limited_capacity").notNull().default(false),
+  maxCapacity: (0, import_pg_core.integer)("max_capacity"),
+  currentReservations: (0, import_pg_core.integer)("current_reservations").notNull().default(0),
+  hasFood: (0, import_pg_core.boolean)("has_food").notNull().default(false),
+  foodDescription: (0, import_pg_core.text)("food_description"),
+  tags: (0, import_pg_core.text)("tags").array().notNull().default(import_drizzle_orm.sql`'{}'::text[]`),
+  isCancelled: (0, import_pg_core.boolean)("is_cancelled").notNull().default(false),
+  coverImage: (0, import_pg_core.text)("cover_image")
 });
-var events = pgTable("events", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  title: text("title").notNull(),
-  description: text("description").notNull(),
-  clubId: varchar("club_id").notNull(),
-  buildingId: varchar("building_id").notNull(),
-  categoryId: varchar("category_id").notNull(),
-  startTime: timestamp("start_time").notNull(),
-  endTime: timestamp("end_time").notNull(),
-  room: text("room").notNull(),
-  hasLimitedCapacity: boolean("has_limited_capacity").notNull().default(false),
-  maxCapacity: integer("max_capacity"),
-  currentReservations: integer("current_reservations").notNull().default(0),
-  hasFood: boolean("has_food").notNull().default(false),
-  foodDescription: text("food_description"),
-  tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
-  isCancelled: boolean("is_cancelled").notNull().default(false),
-  coverImage: text("cover_image")
+var clubMemberships = (0, import_pg_core.pgTable)("club_memberships", {
+  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
+  userId: (0, import_pg_core.varchar)("user_id").notNull(),
+  clubId: (0, import_pg_core.varchar)("club_id").notNull(),
+  role: (0, import_pg_core.text)("role").notNull().default("member"),
+  joinedAt: (0, import_pg_core.timestamp)("joined_at").defaultNow().notNull()
 });
-var clubMemberships = pgTable("club_memberships", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull(),
-  clubId: varchar("club_id").notNull(),
-  role: text("role").notNull().default("member"),
-  joinedAt: timestamp("joined_at").defaultNow().notNull()
+var eventSaves = (0, import_pg_core.pgTable)("event_saves", {
+  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
+  userId: (0, import_pg_core.varchar)("user_id").notNull(),
+  eventId: (0, import_pg_core.varchar)("event_id").notNull(),
+  savedAt: (0, import_pg_core.timestamp)("saved_at").defaultNow().notNull()
 });
-var eventSaves = pgTable("event_saves", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull(),
-  eventId: varchar("event_id").notNull(),
-  savedAt: timestamp("saved_at").defaultNow().notNull()
+var reservations = (0, import_pg_core.pgTable)("reservations", {
+  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
+  userId: (0, import_pg_core.varchar)("user_id").notNull(),
+  eventId: (0, import_pg_core.varchar)("event_id").notNull(),
+  reservedAt: (0, import_pg_core.timestamp)("reserved_at").defaultNow().notNull(),
+  status: (0, import_pg_core.text)("status").notNull().default("confirmed")
 });
-var reservations = pgTable("reservations", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull(),
-  eventId: varchar("event_id").notNull(),
-  reservedAt: timestamp("reserved_at").defaultNow().notNull(),
-  status: text("status").notNull().default("confirmed")
+var announcements = (0, import_pg_core.pgTable)("announcements", {
+  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
+  clubId: (0, import_pg_core.varchar)("club_id").notNull(),
+  title: (0, import_pg_core.text)("title").notNull(),
+  body: (0, import_pg_core.text)("body").notNull(),
+  createdAt: (0, import_pg_core.timestamp)("created_at").defaultNow().notNull()
 });
-var announcements = pgTable("announcements", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clubId: varchar("club_id").notNull(),
-  title: text("title").notNull(),
-  body: text("body").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull()
+var notifications = (0, import_pg_core.pgTable)("notifications", {
+  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
+  userId: (0, import_pg_core.varchar)("user_id").notNull(),
+  type: (0, import_pg_core.text)("type").notNull(),
+  title: (0, import_pg_core.text)("title").notNull(),
+  body: (0, import_pg_core.text)("body").notNull(),
+  read: (0, import_pg_core.boolean)("read").notNull().default(false),
+  createdAt: (0, import_pg_core.timestamp)("created_at").defaultNow().notNull(),
+  relatedId: (0, import_pg_core.varchar)("related_id")
 });
-var notifications = pgTable("notifications", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull(),
-  type: text("type").notNull(),
-  title: text("title").notNull(),
-  body: text("body").notNull(),
-  read: boolean("read").notNull().default(false),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  relatedId: varchar("related_id")
-});
-var insertUserSchema = createInsertSchema(users).pick({
+var insertUserSchema = (0, import_drizzle_zod.createInsertSchema)(users).pick({
   email: true,
   name: true,
   password: true
 });
-var insertClubSchema = createInsertSchema(clubs).omit({
+var insertClubSchema = (0, import_drizzle_zod.createInsertSchema)(clubs).omit({
   id: true,
   memberCount: true,
   profileImage: true,
   coverImage: true
 });
-var insertEventSchema = createInsertSchema(events).omit({
+var insertEventSchema = (0, import_drizzle_zod.createInsertSchema)(events).omit({
   id: true,
   currentReservations: true,
   isCancelled: true,
   coverImage: true
 });
-var insertAnnouncementSchema = createInsertSchema(announcements).omit({
+var insertAnnouncementSchema = (0, import_drizzle_zod.createInsertSchema)(announcements).omit({
   id: true,
   createdAt: true
 });
-
-// server/db.ts
-var dbProvider = process.env.DB_PROVIDER || (process.env.DATABASE_URL ? "postgres" : "sqlite");
-var isPostgres = dbProvider === "postgres";
-var pool = isPostgres ? new pg.Pool({
-  connectionString: process.env.DATABASE_URL
-}) : null;
-var db = pool ? drizzle(pool, { schema: schema_exports }) : null;
-
-// server/storage.ts
-import { sql as sql2 } from "drizzle-orm";
-
-// server/sqlite.ts
-import fs from "node:fs";
-import path from "node:path";
-import { randomUUID } from "node:crypto";
-import Database from "better-sqlite3";
-import { getTableName } from "drizzle-orm";
 
 // lib/data/seed-data.ts
 var BUILDINGS = [
@@ -302,22 +285,23 @@ var DEFAULT_USER = {
 };
 
 // server/sqlite.ts
-var sqlitePath = process.env.SQLITE_DB_PATH || path.resolve(process.cwd(), ".local", "byuconnect.sqlite");
-fs.mkdirSync(path.dirname(sqlitePath), { recursive: true });
-var sqlite = new Database(sqlitePath);
+var sqlitePath = process.env.SQLITE_DB_PATH || import_node_path.default.resolve(process.cwd(), ".local", "byuconnect.sqlite");
+import_node_fs.default.mkdirSync(import_node_path.default.dirname(sqlitePath), { recursive: true });
+var sqlite = new import_better_sqlite3.default(sqlitePath);
 sqlite.pragma("journal_mode = WAL");
 sqlite.pragma("foreign_keys = ON");
 var tableNames = {
-  users: getTableName(users),
-  buildings: getTableName(buildings),
-  categories: getTableName(categories),
-  clubs: getTableName(clubs),
-  events: getTableName(events),
-  clubMemberships: getTableName(clubMemberships),
-  eventSaves: getTableName(eventSaves),
-  reservations: getTableName(reservations),
-  announcements: getTableName(announcements),
-  notifications: getTableName(notifications)
+  users: (0, import_drizzle_orm2.getTableName)(users),
+  buildings: (0, import_drizzle_orm2.getTableName)(buildings),
+  categories: (0, import_drizzle_orm2.getTableName)(categories),
+  clubs: (0, import_drizzle_orm2.getTableName)(clubs),
+  events: (0, import_drizzle_orm2.getTableName)(events),
+  clubMemberships: (0, import_drizzle_orm2.getTableName)(clubMemberships),
+  eventSaves: (0, import_drizzle_orm2.getTableName)(eventSaves),
+  reservations: (0, import_drizzle_orm2.getTableName)(reservations),
+  announcements: (0, import_drizzle_orm2.getTableName)(announcements),
+  notifications: (0, import_drizzle_orm2.getTableName)(notifications),
+  sessions: "sessions"
 };
 function toDate(value) {
   if (!value) return void 0;
@@ -495,7 +479,17 @@ function initializeSqliteDatabase() {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       related_id TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS ${tableNames.sessions} (
+      sid TEXT PRIMARY KEY,
+      sess TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sessions_expires_at
+    ON ${tableNames.sessions} (expires_at);
   `);
+  pruneExpiredSessions();
   const existingUsers = sqlite.prepare(`SELECT COUNT(*) as count FROM ${tableNames.users}`).get();
   if (existingUsers.count > 0) {
     return;
@@ -598,6 +592,80 @@ function initializeSqliteDatabase() {
   });
   seed();
 }
+function getSessionExpiry(sessionData) {
+  const cookieExpiry = sessionData.cookie?.expires;
+  if (cookieExpiry instanceof Date) {
+    return cookieExpiry;
+  }
+  if (typeof cookieExpiry === "string") {
+    const parsedExpiry = new Date(cookieExpiry);
+    if (!Number.isNaN(parsedExpiry.getTime())) {
+      return parsedExpiry;
+    }
+  }
+  const maxAge = sessionData.cookie?.maxAge;
+  if (typeof maxAge === "number") {
+    return new Date(Date.now() + maxAge);
+  }
+  return new Date(Date.now() + 24 * 60 * 60 * 1e3);
+}
+function pruneExpiredSessions() {
+  sqlite.prepare(`DELETE FROM ${tableNames.sessions} WHERE expires_at <= ?`).run((/* @__PURE__ */ new Date()).toISOString());
+}
+var SqliteSessionStore = class extends import_express_session.default.Store {
+  constructor() {
+    super();
+    pruneExpiredSessions();
+  }
+  get(sid, callback) {
+    try {
+      const row = sqlite.prepare(
+        `SELECT sid, sess, expires_at as expiresAt
+           FROM ${tableNames.sessions}
+           WHERE sid = ? AND expires_at > ?`
+      ).get(sid, (/* @__PURE__ */ new Date()).toISOString());
+      if (!row) {
+        callback(void 0, null);
+        return;
+      }
+      callback(void 0, JSON.parse(row.sess));
+    } catch (error) {
+      callback(error);
+    }
+  }
+  set(sid, sessionData, callback) {
+    try {
+      const expiresAt = getSessionExpiry(sessionData).toISOString();
+      sqlite.prepare(
+        `INSERT INTO ${tableNames.sessions} (sid, sess, expires_at)
+           VALUES (?, ?, ?)
+           ON CONFLICT(sid) DO UPDATE SET
+             sess = excluded.sess,
+             expires_at = excluded.expires_at`
+      ).run(sid, JSON.stringify(sessionData), expiresAt);
+      callback?.();
+    } catch (error) {
+      callback?.(error);
+    }
+  }
+  destroy(sid, callback) {
+    try {
+      sqlite.prepare(`DELETE FROM ${tableNames.sessions} WHERE sid = ?`).run(sid);
+      callback?.();
+    } catch (error) {
+      callback?.(error);
+    }
+  }
+  touch(sid, sessionData, callback) {
+    const expiresAt = getSessionExpiry(sessionData).toISOString();
+    sqlite.prepare(
+      `UPDATE ${tableNames.sessions}
+         SET sess = ?, expires_at = ?
+         WHERE sid = ?`
+    ).run(JSON.stringify(sessionData), expiresAt, sid);
+    callback?.();
+  }
+};
 var SqliteStorage = class {
   async getUser(id) {
     const row = sqlite.prepare(
@@ -612,7 +680,7 @@ var SqliteStorage = class {
     return row ? normalizeUser(row) : void 0;
   }
   async createUser(insertUser) {
-    const id = randomUUID();
+    const id = (0, import_node_crypto.randomUUID)();
     const createdAt = (/* @__PURE__ */ new Date()).toISOString();
     sqlite.prepare(
       `INSERT INTO ${tableNames.users} (id, email, name, password, created_at) VALUES (?, ?, ?, ?, ?)`
@@ -647,7 +715,7 @@ var SqliteStorage = class {
     return row ? normalizeClub(row) : void 0;
   }
   async createClub(insertClub) {
-    const id = randomUUID();
+    const id = (0, import_node_crypto.randomUUID)();
     sqlite.prepare(
       `INSERT INTO ${tableNames.clubs} (id, name, description, category_id, member_count, image_color, contact_email, website, instagram) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
@@ -687,7 +755,7 @@ var SqliteStorage = class {
     return row ? normalizeEvent(row) : void 0;
   }
   async createEvent(insertEvent) {
-    const id = randomUUID();
+    const id = (0, import_node_crypto.randomUUID)();
     sqlite.prepare(
       `INSERT INTO ${tableNames.events} (id, title, description, club_id, building_id, category_id, start_time, end_time, room, has_limited_capacity, max_capacity, current_reservations, has_food, food_description, tags, is_cancelled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
@@ -735,7 +803,7 @@ var SqliteStorage = class {
       if (existing) {
         return normalizeMembership(existing);
       }
-      const id = randomUUID();
+      const id = (0, import_node_crypto.randomUUID)();
       const joinedAt = (/* @__PURE__ */ new Date()).toISOString();
       sqlite.prepare(
         `INSERT INTO ${tableNames.clubMemberships} (id, user_id, club_id, role, joined_at) VALUES (?, ?, ?, ?, ?)`
@@ -772,7 +840,7 @@ var SqliteStorage = class {
     if (existing) {
       return normalizeSave(existing);
     }
-    const id = randomUUID();
+    const id = (0, import_node_crypto.randomUUID)();
     const savedAt = (/* @__PURE__ */ new Date()).toISOString();
     sqlite.prepare(
       `INSERT INTO ${tableNames.eventSaves} (id, user_id, event_id, saved_at) VALUES (?, ?, ?, ?)`
@@ -804,7 +872,7 @@ var SqliteStorage = class {
       if (existing) {
         return normalizeReservation(existing);
       }
-      const id = randomUUID();
+      const id = (0, import_node_crypto.randomUUID)();
       const reservedAt = (/* @__PURE__ */ new Date()).toISOString();
       sqlite.prepare(
         `INSERT INTO ${tableNames.reservations} (id, user_id, event_id, reserved_at, status) VALUES (?, ?, ?, ?, ?)`
@@ -838,7 +906,7 @@ var SqliteStorage = class {
     return rows.map(normalizeAnnouncement);
   }
   async createAnnouncement(announcement) {
-    const id = randomUUID();
+    const id = (0, import_node_crypto.randomUUID)();
     const createdAt = (/* @__PURE__ */ new Date()).toISOString();
     sqlite.prepare(
       `INSERT INTO ${tableNames.announcements} (id, club_id, title, body, created_at) VALUES (?, ?, ?, ?, ?)`
@@ -856,138 +924,8 @@ var SqliteStorage = class {
 };
 
 // server/storage.ts
-var db2 = db;
-var DatabaseStorage = class {
-  async getUser(id) {
-    const [user] = await db2.select().from(users).where(eq(users.id, id));
-    return user;
-  }
-  async getUserByEmail(email) {
-    const [user] = await db2.select().from(users).where(eq(users.email, email));
-    return user;
-  }
-  async createUser(insertUser) {
-    const [user] = await db2.insert(users).values(insertUser).returning();
-    return user;
-  }
-  async updateUserProfileImage(id, imageUrl) {
-    await db2.update(users).set({ profileImage: imageUrl }).where(eq(users.id, id));
-  }
-  async getBuildings() {
-    return db2.select().from(buildings);
-  }
-  async getCategories() {
-    return db2.select().from(categories);
-  }
-  async getClubs() {
-    return db2.select().from(clubs);
-  }
-  async getClub(id) {
-    const [club] = await db2.select().from(clubs).where(eq(clubs.id, id));
-    return club;
-  }
-  async createClub(insertClub) {
-    const [club] = await db2.insert(clubs).values(insertClub).returning();
-    return club;
-  }
-  async updateClubProfileImage(id, imageUrl) {
-    await db2.update(clubs).set({ profileImage: imageUrl }).where(eq(clubs.id, id));
-  }
-  async updateClubCoverImage(id, imageUrl) {
-    await db2.update(clubs).set({ coverImage: imageUrl }).where(eq(clubs.id, id));
-  }
-  async getEvents() {
-    return db2.select().from(events);
-  }
-  async getEvent(id) {
-    const [event] = await db2.select().from(events).where(eq(events.id, id));
-    return event;
-  }
-  async createEvent(insertEvent) {
-    const [event] = await db2.insert(events).values(insertEvent).returning();
-    return event;
-  }
-  async updateEventCoverImage(id, imageUrl) {
-    await db2.update(events).set({ coverImage: imageUrl }).where(eq(events.id, id));
-  }
-  async getMemberships(userId) {
-    return db2.select().from(clubMemberships).where(eq(clubMemberships.userId, userId));
-  }
-  async joinClub(userId, clubId) {
-    const existing = await db2.select().from(clubMemberships).where(and(eq(clubMemberships.userId, userId), eq(clubMemberships.clubId, clubId)));
-    if (existing.length > 0) return existing[0];
-    const [membership] = await db2.insert(clubMemberships).values({ userId, clubId, role: "member" }).returning();
-    await db2.update(clubs).set({ memberCount: sql2`${clubs.memberCount} + 1` }).where(eq(clubs.id, clubId));
-    return membership;
-  }
-  async leaveClub(userId, clubId) {
-    const deleted = await db2.delete(clubMemberships).where(and(eq(clubMemberships.userId, userId), eq(clubMemberships.clubId, clubId))).returning();
-    if (deleted.length > 0) {
-      await db2.update(clubs).set({ memberCount: sql2`GREATEST(${clubs.memberCount} - 1, 0)` }).where(eq(clubs.id, clubId));
-    }
-  }
-  async getSaves(userId) {
-    return db2.select().from(eventSaves).where(eq(eventSaves.userId, userId));
-  }
-  async saveEvent(userId, eventId) {
-    const existing = await db2.select().from(eventSaves).where(and(eq(eventSaves.userId, userId), eq(eventSaves.eventId, eventId)));
-    if (existing.length > 0) return existing[0];
-    const [save] = await db2.insert(eventSaves).values({ userId, eventId }).returning();
-    return save;
-  }
-  async unsaveEvent(userId, eventId) {
-    await db2.delete(eventSaves).where(and(eq(eventSaves.userId, userId), eq(eventSaves.eventId, eventId)));
-  }
-  async getReservations(userId) {
-    return db2.select().from(reservations).where(and(eq(reservations.userId, userId), eq(reservations.status, "confirmed")));
-  }
-  async makeReservation(userId, eventId) {
-    const [event] = await db2.select().from(events).where(eq(events.id, eventId));
-    if (!event) return null;
-    if (event.hasLimitedCapacity && event.maxCapacity !== null && event.currentReservations >= event.maxCapacity) {
-      return null;
-    }
-    const existing = await db2.select().from(reservations).where(and(
-      eq(reservations.userId, userId),
-      eq(reservations.eventId, eventId),
-      eq(reservations.status, "confirmed")
-    ));
-    if (existing.length > 0) return existing[0];
-    const [reservation] = await db2.insert(reservations).values({ userId, eventId, status: "confirmed" }).returning();
-    await db2.update(events).set({ currentReservations: sql2`${events.currentReservations} + 1` }).where(eq(events.id, eventId));
-    return reservation;
-  }
-  async cancelReservation(userId, eventId) {
-    const deleted = await db2.update(reservations).set({ status: "cancelled" }).where(and(
-      eq(reservations.userId, userId),
-      eq(reservations.eventId, eventId),
-      eq(reservations.status, "confirmed")
-    )).returning();
-    if (deleted.length > 0) {
-      await db2.update(events).set({ currentReservations: sql2`GREATEST(${events.currentReservations} - 1, 0)` }).where(eq(events.id, eventId));
-    }
-  }
-  async getAnnouncements(clubId) {
-    if (clubId) {
-      return db2.select().from(announcements).where(eq(announcements.clubId, clubId)).orderBy(desc(announcements.createdAt));
-    }
-    return db2.select().from(announcements).orderBy(desc(announcements.createdAt));
-  }
-  async createAnnouncement(announcement) {
-    const [created] = await db2.insert(announcements).values(announcement).returning();
-    return created;
-  }
-  async getNotifications(userId) {
-    return db2.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt));
-  }
-  async markNotificationRead(id) {
-    await db2.update(notifications).set({ read: true }).where(eq(notifications.id, id));
-  }
-};
-if (dbProvider === "sqlite") {
-  initializeSqliteDatabase();
-}
-var storage = dbProvider === "sqlite" ? new SqliteStorage() : new DatabaseStorage();
+initializeSqliteDatabase();
+var storage = new SqliteStorage();
 
 // server/routes.ts
 function requireAuth(req, res, next) {
@@ -1211,15 +1149,31 @@ async function registerRoutes(app2) {
     await storage.markNotificationRead(req.params.id);
     res.json({ message: "Marked as read" });
   });
-  const httpServer = createServer(app2);
+  const httpServer = (0, import_node_http.createServer)(app2);
   return httpServer;
 }
 
 // server/index.ts
-import * as fs3 from "fs";
-import * as path3 from "path";
-var app = express();
+var fs3 = __toESM(require("fs"));
+var path3 = __toESM(require("path"));
+var app = (0, import_express.default)();
 var log = console.log;
+var isProduction = process.env.NODE_ENV === "production";
+initializeSqliteDatabase();
+function configureRuntime(app2) {
+  if (process.env.TRUST_PROXY) {
+    const trustProxyValue = process.env.TRUST_PROXY.trim();
+    const parsedTrustProxy = Number.parseInt(trustProxyValue, 10);
+    app2.set(
+      "trust proxy",
+      Number.isNaN(parsedTrustProxy) ? trustProxyValue : parsedTrustProxy
+    );
+    return;
+  }
+  if (isProduction) {
+    app2.set("trust proxy", 1);
+  }
+}
 function setupCors(app2) {
   app2.use((req, res, next) => {
     const origin = req.header("origin");
@@ -1248,13 +1202,13 @@ function setupCors(app2) {
 }
 function setupBodyParsing(app2) {
   app2.use(
-    express.json({
+    import_express.default.json({
       verify: (req, _res, buf) => {
         req.rawBody = buf;
       }
     })
   );
-  app2.use(express.urlencoded({ extended: false }));
+  app2.use(import_express.default.urlencoded({ extended: false }));
 }
 function setupRequestLogging(app2) {
   app2.use((req, res, next) => {
@@ -1356,8 +1310,8 @@ function configureExpoAndLanding(app2) {
     }
     next();
   });
-  app2.use("/assets", express.static(path3.resolve(process.cwd(), "assets")));
-  app2.use(express.static(path3.resolve(process.cwd(), "static-build")));
+  app2.use("/assets", import_express.default.static(path3.resolve(process.cwd(), "assets")));
+  app2.use(import_express.default.static(path3.resolve(process.cwd(), "static-build")));
   log("Expo routing: Checking expo-platform header on / and /manifest");
 }
 function setupErrorHandler(app2) {
@@ -1373,43 +1327,24 @@ function setupErrorHandler(app2) {
   });
 }
 function setupSessions(app2) {
-  if (dbProvider === "sqlite") {
-    app2.use(
-      session({
-        secret: process.env.SESSION_SECRET || "byuconnect-dev-secret",
-        resave: false,
-        saveUninitialized: false,
-        cookie: {
-          maxAge: 30 * 24 * 60 * 60 * 1e3,
-          httpOnly: true,
-          secure: false,
-          sameSite: "lax"
-        }
-      })
-    );
-    return;
-  }
-  const PgSession = connectPgSimple(session);
+  const sessionCookie = {
+    maxAge: 30 * 24 * 60 * 60 * 1e3,
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: "lax"
+  };
   app2.use(
-    session({
-      store: new PgSession({
-        pool,
-        tableName: "session",
-        createTableIfMissing: true
-      }),
+    (0, import_express_session2.default)({
+      store: new SqliteSessionStore(),
       secret: process.env.SESSION_SECRET || "byuconnect-dev-secret",
       resave: false,
       saveUninitialized: false,
-      cookie: {
-        maxAge: 30 * 24 * 60 * 60 * 1e3,
-        httpOnly: true,
-        secure: false,
-        sameSite: "lax"
-      }
+      cookie: sessionCookie
     })
   );
 }
 (async () => {
+  configureRuntime(app);
   setupCors(app);
   setupBodyParsing(app);
   setupSessions(app);
@@ -1418,7 +1353,7 @@ function setupSessions(app2) {
   const server = await registerRoutes(app);
   setupErrorHandler(app);
   const port = parseInt(process.env.PORT || "5000", 10);
-  const host = process.env.HOST || "127.0.0.1";
+  const host = process.env.HOST || (isProduction ? "0.0.0.0" : "127.0.0.1");
   server.listen(
     {
       port,

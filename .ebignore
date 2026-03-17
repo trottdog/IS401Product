@@ -1,4 +1,5 @@
 .expo/
+deploy-bundle/
 .git/
 .local/
 node_modules/

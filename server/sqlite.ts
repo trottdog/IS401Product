@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import Database from "better-sqlite3";
+import session from "express-session";
+import type { SessionData } from "express-session";
 import { getTableName } from "drizzle-orm";
 import {
   announcements,
@@ -61,6 +63,13 @@ const tableNames = {
   reservations: getTableName(reservations),
   announcements: getTableName(announcements),
   notifications: getTableName(notifications),
+  sessions: "sessions",
+};
+
+type SessionRow = {
+  sid: string;
+  sess: string;
+  expiresAt: string;
 };
 
 function toDate(value: string | null | undefined) {
@@ -250,7 +259,18 @@ export function initializeSqliteDatabase() {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       related_id TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS ${tableNames.sessions} (
+      sid TEXT PRIMARY KEY,
+      sess TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sessions_expires_at
+    ON ${tableNames.sessions} (expires_at);
   `);
+
+  pruneExpiredSessions();
 
   const existingUsers = sqlite
     .prepare(`SELECT COUNT(*) as count FROM ${tableNames.users}`)
@@ -366,6 +386,116 @@ export function initializeSqliteDatabase() {
   });
 
   seed();
+}
+
+function getSessionExpiry(sessionData: SessionData) {
+  const cookieExpiry = sessionData.cookie?.expires;
+  if (cookieExpiry instanceof Date) {
+    return cookieExpiry;
+  }
+
+  if (typeof cookieExpiry === "string") {
+    const parsedExpiry = new Date(cookieExpiry);
+    if (!Number.isNaN(parsedExpiry.getTime())) {
+      return parsedExpiry;
+    }
+  }
+
+  const maxAge = sessionData.cookie?.maxAge;
+  if (typeof maxAge === "number") {
+    return new Date(Date.now() + maxAge);
+  }
+
+  return new Date(Date.now() + 24 * 60 * 60 * 1000);
+}
+
+export function pruneExpiredSessions() {
+  sqlite
+    .prepare(`DELETE FROM ${tableNames.sessions} WHERE expires_at <= ?`)
+    .run(new Date().toISOString());
+}
+
+export class SqliteSessionStore extends session.Store {
+  constructor() {
+    super();
+    pruneExpiredSessions();
+  }
+
+  override get(
+    sid: string,
+    callback: (err?: unknown, sessionData?: SessionData | null) => void,
+  ) {
+    try {
+      const row = sqlite
+        .prepare(
+          `SELECT sid, sess, expires_at as expiresAt
+           FROM ${tableNames.sessions}
+           WHERE sid = ? AND expires_at > ?`,
+        )
+        .get(sid, new Date().toISOString()) as SessionRow | undefined;
+
+      if (!row) {
+        callback(undefined, null);
+        return;
+      }
+
+      callback(undefined, JSON.parse(row.sess) as SessionData);
+    } catch (error) {
+      callback(error);
+    }
+  }
+
+  override set(
+    sid: string,
+    sessionData: SessionData,
+    callback?: (err?: unknown) => void,
+  ) {
+    try {
+      const expiresAt = getSessionExpiry(sessionData).toISOString();
+      sqlite
+        .prepare(
+          `INSERT INTO ${tableNames.sessions} (sid, sess, expires_at)
+           VALUES (?, ?, ?)
+           ON CONFLICT(sid) DO UPDATE SET
+             sess = excluded.sess,
+             expires_at = excluded.expires_at`,
+        )
+        .run(sid, JSON.stringify(sessionData), expiresAt);
+
+      callback?.();
+    } catch (error) {
+      callback?.(error);
+    }
+  }
+
+  override destroy(sid: string, callback?: (err?: unknown) => void) {
+    try {
+      sqlite
+        .prepare(`DELETE FROM ${tableNames.sessions} WHERE sid = ?`)
+        .run(sid);
+
+      callback?.();
+    } catch (error) {
+      callback?.(error);
+    }
+  }
+
+  override touch(
+    sid: string,
+    sessionData: SessionData,
+    callback?: () => void,
+  ) {
+    const expiresAt = getSessionExpiry(sessionData).toISOString();
+    sqlite
+      .prepare(
+        `UPDATE ${tableNames.sessions}
+         SET sess = ?, expires_at = ?
+         WHERE sid = ?`,
+      )
+      .run(JSON.stringify(sessionData), expiresAt, sid);
+
+    callback?.();
+  }
 }
 
 export class SqliteStorage {
