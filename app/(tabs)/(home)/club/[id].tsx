@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, ScrollView, Pressable, StyleSheet, Alert, ActivityIndicator, Platform, Image } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  Platform,
+  Image,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -16,7 +29,10 @@ import { PageShell } from "@/components/layout/PageShell";
 import { useResponsiveLayout } from "@/lib/ui/responsive";
 
 export default function ClubProfileScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const route = useLocalSearchParams<{ id: string | string[] }>();
+  const clubPageId = route.id
+    ? (Array.isArray(route.id) ? route.id[0] : route.id)
+    : undefined;
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [club, setClub] = useState<Club | null>(null);
@@ -28,42 +44,49 @@ export default function ClubProfileScreen() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [tab, setTab] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editContactEmail, setEditContactEmail] = useState("");
+  const [editWebsite, setEditWebsite] = useState("");
+  const [editInstagram, setEditInstagram] = useState("");
+  const [savingClub, setSavingClub] = useState(false);
   const layout = useResponsiveLayout();
 
   const topInset = Platform.OS === "web" ? layout.topInset : insets.top;
 
   useEffect(() => {
     (async () => {
-      if (!id) return;
+      if (!clubPageId) return;
       const [c, cats, e, b, allClubs, ann] = await Promise.all([
-        store.getClub(id),
+        store.getClub(clubPageId),
         store.getCategories(),
         store.getEvents(),
         store.getBuildings(),
         store.getClubs(),
-        store.getAnnouncements(id),
+        store.getAnnouncements(clubPageId),
       ]);
       if (c) {
         setClub(c);
         setCategory(cats.find(cat => cat.id === c.categoryId) || null);
       }
       const now = new Date();
-      setEvents(sortEventsByDateAndTime(e.filter(ev => ev.clubId === id && !ev.isCancelled && new Date(ev.endTime) > now)));
+      setEvents(sortEventsByDateAndTime(e.filter(ev => ev.clubId === clubPageId && !ev.isCancelled && new Date(ev.endTime) > now)));
       setBuildings(b);
       setClubs(allClubs);
       setAnnouncements(ann);
 
       if (user) {
         const memberships = await store.getMemberships(user.id);
-        setMembership(memberships.find(m => m.clubId === id) || null);
+        setMembership(memberships.find(m => m.clubId === clubPageId) || null);
       }
       setLoading(false);
     })();
-  }, [id, user]);
+  }, [clubPageId, user]);
 
   const handleJoin = async () => {
     if (!user) { router.push("/(auth)/login"); return; }
-    if (!id) return;
+    if (!clubPageId) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (membership) {
       Alert.alert("Leave Club", `Leave ${club?.name}?`, [
@@ -72,7 +95,7 @@ export default function ClubProfileScreen() {
           text: "Leave",
           style: "destructive",
           onPress: async () => {
-            await store.leaveClub(user.id, id);
+            await store.leaveClub(user.id, clubPageId);
             setMembership(null);
             if (club) setClub({ ...club, memberCount: Math.max(0, club.memberCount - 1) });
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -80,7 +103,7 @@ export default function ClubProfileScreen() {
         },
       ]);
     } else {
-      const m = await store.joinClub(user.id, id);
+      const m = await store.joinClub(user.id, clubPageId);
       setMembership(m);
       if (club) setClub({ ...club, memberCount: club.memberCount + 1 });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -90,6 +113,71 @@ export default function ClubProfileScreen() {
   const getBuilding = (bid: string) => buildings.find(b => b.id === bid);
   const getClub = (cid: string) => clubs.find(c => c.id === cid);
   const isAdmin = membership?.role === "admin" || membership?.role === "president";
+
+  const openEditModal = () => {
+    if (!club) return;
+    setEditName(club.name);
+    setEditDescription(club.description);
+    setEditContactEmail(club.contactEmail);
+    setEditWebsite(club.website);
+    setEditInstagram(club.instagram);
+    setEditModalOpen(true);
+  };
+
+  const saveClubDetails = async () => {
+    if (!club || !clubPageId) return;
+    setSavingClub(true);
+    try {
+      const updated = await store.updateClubDetails(clubPageId, {
+        name: editName.trim(),
+        description: editDescription.trim(),
+        contactEmail: editContactEmail.trim(),
+        website: editWebsite.trim(),
+        instagram: editInstagram.trim(),
+      });
+      setClub({
+        ...club,
+        name: updated.name,
+        description: updated.description,
+        contactEmail: updated.contactEmail,
+        website: updated.website,
+        instagram: updated.instagram,
+        profileImage: updated.profileImage,
+        coverImage: updated.coverImage,
+      });
+      setEditModalOpen(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e: any) {
+      Alert.alert("Could not save", e?.message || "Try again.");
+    } finally {
+      setSavingClub(false);
+    }
+  };
+
+  const pickProfileImage = async () => {
+    if (!club || !isAdmin) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+      base64: true,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      const imageUri = asset.base64
+        ? `data:image/jpeg;base64,${asset.base64}`
+        : asset.uri;
+      setClub(prev => (prev ? { ...prev, profileImage: imageUri } : prev));
+      try {
+        await store.updateClubProfileImage(club.id, imageUri);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (e) {
+        console.warn("Failed to save profile image:", e);
+        Alert.alert("Could not save", "Profile image was not updated.");
+      }
+    }
+  };
 
   if (loading || !club) {
     return (
@@ -129,36 +217,57 @@ export default function ClubProfileScreen() {
                   <Ionicons name="image-outline" size={32} color={Colors.light.textTertiary} />
                 </View>
               )}
-              <Pressable
-                onPress={async () => {
-                  const result = await ImagePicker.launchImageLibraryAsync({
-                    mediaTypes: ['images'],
-                    allowsEditing: true,
-                    aspect: [16, 9],
-                    quality: 0.8,
-                    base64: true,
-                  });
-                  if (!result.canceled && result.assets[0]) {
-                    const asset = result.assets[0];
-                    const imageUri = asset.base64
-                      ? `data:image/jpeg;base64,${asset.base64}`
-                      : asset.uri;
-                    setClub(prev => prev ? { ...prev, coverImage: imageUri } : prev);
-                    try {
-                      await store.updateClubCoverImage(club.id, imageUri);
-                    } catch (e) {
-                      console.warn("Failed to save cover image:", e);
+              {isAdmin && (
+                <Pressable
+                  onPress={async () => {
+                    const result = await ImagePicker.launchImageLibraryAsync({
+                      mediaTypes: ["images"],
+                      allowsEditing: true,
+                      aspect: [16, 9],
+                      quality: 0.8,
+                      base64: true,
+                    });
+                    if (!result.canceled && result.assets[0]) {
+                      const asset = result.assets[0];
+                      const imageUri = asset.base64
+                        ? `data:image/jpeg;base64,${asset.base64}`
+                        : asset.uri;
+                      setClub(prev => (prev ? { ...prev, coverImage: imageUri } : prev));
+                      try {
+                        await store.updateClubCoverImage(club.id, imageUri);
+                      } catch (e) {
+                        console.warn("Failed to save cover image:", e);
+                        Alert.alert("Could not save", "Cover image was not updated.");
+                      }
                     }
-                  }
-                }}
-                style={styles.editCoverBtn}
-              >
-                <Ionicons name="camera-outline" size={16} color="#fff" />
-              </Pressable>
+                  }}
+                  style={styles.editCoverBtn}
+                >
+                  <Ionicons name="camera-outline" size={16} color="#fff" />
+                </Pressable>
+              )}
             </View>
-            <View style={[styles.avatar, { backgroundColor: club.imageColor }]}>
-              <Text style={styles.avatarText}>{club.name.charAt(0)}</Text>
-            </View>
+            <Pressable
+              onPress={() => {
+                if (isAdmin) {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  pickProfileImage();
+                }
+              }}
+              disabled={!isAdmin}
+              style={[styles.avatar, { backgroundColor: club.imageColor }]}
+            >
+              {club.profileImage ? (
+                <Image source={{ uri: club.profileImage }} style={styles.avatarImage} resizeMode="cover" />
+              ) : (
+                <Text style={styles.avatarText}>{club.name.charAt(0)}</Text>
+              )}
+              {isAdmin && (
+                <View style={styles.avatarEditHint}>
+                  <Ionicons name="camera-outline" size={12} color="#fff" />
+                </View>
+              )}
+            </Pressable>
             <Text style={styles.clubName}>{club.name}</Text>
             {category && (
               <View style={styles.categoryBadge}>
@@ -185,6 +294,35 @@ export default function ClubProfileScreen() {
                 {membership ? (isAdmin ? "Admin" : "Joined") : "Join Club"}
               </Text>
             </Pressable>
+
+            {isAdmin && (
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  openEditModal();
+                }}
+                style={styles.editDetailsBtn}
+              >
+                <Ionicons name="create-outline" size={18} color={Colors.light.tint} />
+                <Text style={styles.editDetailsBtnText}>Edit club details</Text>
+              </Pressable>
+            )}
+
+            {isAdmin && clubPageId && (
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push({
+                    pathname: "/(tabs)/(home)/create-event",
+                    params: { clubId: clubPageId },
+                  });
+                }}
+                style={styles.addEventBtn}
+              >
+                <Ionicons name="calendar-outline" size={18} color="#fff" />
+                <Text style={styles.addEventBtnText}>Add event</Text>
+              </Pressable>
+            )}
           </View>
 
           <SegmentedControl
@@ -221,13 +359,32 @@ export default function ClubProfileScreen() {
                   <Text style={styles.subsectionTitle}>Upcoming Events</Text>
                   {events.length > 0 ? (
                     events.map(e => (
-                      <EventCard
-                        key={e.id}
-                        event={e}
-                        club={getClub(e.clubId)}
-                        building={getBuilding(e.buildingId)}
-                        compact
-                      />
+                      <View key={e.id} style={styles.eventRow}>
+                        <View style={styles.eventCardFlex}>
+                          <EventCard
+                            event={e}
+                            club={getClub(e.clubId)}
+                            building={getBuilding(e.buildingId)}
+                            compact
+                          />
+                        </View>
+                        {isAdmin && (
+                          <Pressable
+                            onPress={() => {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                              router.push({
+                                pathname: "/(tabs)/(home)/create-event",
+                                params: { eventId: e.id },
+                              });
+                            }}
+                            style={styles.editEventBtn}
+                            hitSlop={8}
+                          >
+                            <Ionicons name="pencil" size={18} color={Colors.light.tint} />
+                            <Text style={styles.editEventBtnText}>Edit</Text>
+                          </Pressable>
+                        )}
+                      </View>
                     ))
                   ) : (
                     <Text style={styles.emptyText}>No upcoming events</Text>
@@ -267,6 +424,87 @@ export default function ClubProfileScreen() {
           </View>
         </ScrollView>
       </View>
+
+      <Modal visible={editModalOpen} animationType="slide" transparent onRequestClose={() => setEditModalOpen(false)}>
+        <View style={styles.modalRoot}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setEditModalOpen(false)} accessibilityLabel="Close" />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={styles.modalKeyboard}
+          >
+            <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Edit club</Text>
+            <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <Text style={styles.inputLabel}>Name</Text>
+              <TextInput
+                style={styles.textInput}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="Club name"
+                placeholderTextColor={Colors.light.textTertiary}
+              />
+              <Text style={styles.inputLabel}>Description</Text>
+              <TextInput
+                style={[styles.textInput, styles.textInputMultiline]}
+                value={editDescription}
+                onChangeText={setEditDescription}
+                placeholder="About the club"
+                placeholderTextColor={Colors.light.textTertiary}
+                multiline
+              />
+              <Text style={styles.inputLabel}>Contact email</Text>
+              <TextInput
+                style={styles.textInput}
+                value={editContactEmail}
+                onChangeText={setEditContactEmail}
+                placeholder="email@byu.edu"
+                placeholderTextColor={Colors.light.textTertiary}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+              <Text style={styles.inputLabel}>Website</Text>
+              <TextInput
+                style={styles.textInput}
+                value={editWebsite}
+                onChangeText={setEditWebsite}
+                placeholder="example.com"
+                placeholderTextColor={Colors.light.textTertiary}
+                autoCapitalize="none"
+              />
+              <Text style={styles.inputLabel}>Instagram</Text>
+              <TextInput
+                style={styles.textInput}
+                value={editInstagram}
+                onChangeText={setEditInstagram}
+                placeholder="@handle"
+                placeholderTextColor={Colors.light.textTertiary}
+                autoCapitalize="none"
+              />
+            </ScrollView>
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => setEditModalOpen(false)}
+                style={[styles.modalBtn, styles.modalBtnSecondary]}
+                disabled={savingClub}
+              >
+                <Text style={styles.modalBtnSecondaryText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={saveClubDetails}
+                style={[styles.modalBtn, styles.modalBtnPrimary]}
+                disabled={savingClub || !editName.trim() || !editDescription.trim()}
+              >
+                {savingClub ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.modalBtnPrimaryText}>Save</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </PageShell>
   );
 }
@@ -335,6 +573,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 14,
+    overflow: "hidden",
+    position: "relative",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 22,
+  },
+  avatarEditHint: {
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   avatarText: {
     fontSize: 30,
@@ -379,6 +635,149 @@ const styles = StyleSheet.create({
   },
   joinBtnText: {
     fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
+  },
+  editDetailsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.surface,
+  },
+  editDetailsBtnText: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.light.tint,
+  },
+  addEventBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    backgroundColor: Colors.light.tint,
+    alignSelf: "stretch",
+  },
+  addEventBtnText: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
+  },
+  eventRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    marginBottom: 4,
+  },
+  eventCardFlex: {
+    flex: 1,
+    minWidth: 0,
+  },
+  editEventBtn: {
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    marginTop: 4,
+    borderRadius: 12,
+    backgroundColor: Colors.light.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  editEventBtnText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.light.tint,
+    marginTop: 2,
+  },
+  modalRoot: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  modalKeyboard: {
+    width: "100%" as const,
+  },
+  modalCard: {
+    backgroundColor: Colors.light.background,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: Platform.OS === "ios" ? 34 : 24,
+    maxHeight: "88%",
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: "Inter_700Bold",
+    color: Colors.light.text,
+    marginBottom: 16,
+  },
+  modalScroll: {
+    maxHeight: 400,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.light.textSecondary,
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: Platform.OS === "web" ? 10 : 12,
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    color: Colors.light.text,
+    backgroundColor: Colors.light.surface,
+  },
+  textInputMultiline: {
+    minHeight: 100,
+    textAlignVertical: "top",
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 20,
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalBtnSecondary: {
+    backgroundColor: Colors.light.surfaceSecondary,
+  },
+  modalBtnSecondaryText: {
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.light.text,
+  },
+  modalBtnPrimary: {
+    backgroundColor: Colors.light.tint,
+  },
+  modalBtnPrimaryText: {
+    fontSize: 16,
     fontFamily: "Inter_600SemiBold",
     color: "#fff",
   },

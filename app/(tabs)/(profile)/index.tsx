@@ -71,15 +71,30 @@ export default function ProfileScreen() {
   const getBuilding = (id: string) => buildings.find(b => b.id === id);
 
   const handleLogout = () => {
+    const runLogout = async () => {
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      await logout();
+    };
+
+    // react-native-web does not reliably support Alert.alert with multiple buttons;
+    // the confirm action often never runs, so Sign Out appears broken on web.
+    if (Platform.OS === "web") {
+      const confirmed =
+        typeof window !== "undefined"
+          ? window.confirm("Are you sure you want to sign out?")
+          : true;
+      if (confirmed) void runLogout();
+      return;
+    }
+
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Sign Out",
         style: "destructive",
-        onPress: async () => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          await logout();
-        },
+        onPress: () => void runLogout(),
       },
     ]);
   };

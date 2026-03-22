@@ -123,10 +123,39 @@ export const insertEventSchema = createInsertSchema(events).omit({
   coverImage: true,
 });
 
+/** Partial event update for club admins (existing columns only). */
+export const updateEventDetailsSchema = z
+  .object({
+    title: z.string().min(1).optional(),
+    description: z.string().min(1).optional(),
+    buildingId: z.string().min(1).optional(),
+    categoryId: z.string().min(1).optional(),
+    startTime: z.string().optional(),
+    endTime: z.string().optional(),
+    room: z.string().min(1).optional(),
+    hasLimitedCapacity: z.boolean().optional(),
+    maxCapacity: z.number().int().nullable().optional(),
+    hasFood: z.boolean().optional(),
+    foodDescription: z.string().nullable().optional(),
+    tags: z.array(z.string()).optional(),
+  })
+  .strict();
+
 export const insertAnnouncementSchema = createInsertSchema(announcements).omit({
   id: true,
   createdAt: true,
 });
+
+/** Partial club update for club admins (no DB migration; existing columns only). */
+export const updateClubDetailsSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    description: z.string().min(1).optional(),
+    contactEmail: z.string().optional(),
+    website: z.string().optional(),
+    instagram: z.string().optional(),
+  })
+  .strict();
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;

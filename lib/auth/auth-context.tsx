@@ -42,8 +42,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await store.logout();
-    setUser(null);
+    try {
+      await store.logout();
+    } catch {
+      // Still clear local session so the UI signs out even if the request fails.
+    } finally {
+      setUser(null);
+    }
   };
 
   const value = useMemo(() => ({

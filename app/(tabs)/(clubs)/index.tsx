@@ -1,5 +1,15 @@
 import React, { useState, useCallback } from "react";
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, Platform, RefreshControl } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  SectionList,
+  Pressable,
+  StyleSheet,
+  ActivityIndicator,
+  Platform,
+  RefreshControl,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
@@ -13,11 +23,12 @@ import * as Haptics from "expo-haptics";
 import { PageShell } from "@/components/layout/PageShell";
 import { useResponsiveLayout } from "@/lib/ui/responsive";
 
+type ClubSection = { title: string; subtitle?: string; data: Club[] };
+
 export default function MyClubsScreen() {
   const insets = useSafeAreaInsets();
   const { user, isAuthenticated } = useAuth();
   const [memberships, setMemberships] = useState<ClubMembership[]>([]);
-  const [clubs, setClubs] = useState<Club[]>([]);
   const [allClubs, setAllClubs] = useState<Club[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tab, setTab] = useState(0);
@@ -37,8 +48,6 @@ export default function MyClubsScreen() {
     setMemberships(m);
     setAllClubs(c);
     setCategories(cats);
-    const myClubIds = new Set(m.map(x => x.clubId));
-    setClubs(c.filter(cl => myClubIds.has(cl.id)));
     setLoading(false);
   }, [user]);
 
@@ -80,6 +89,35 @@ export default function MyClubsScreen() {
 
   const getCategory = (catId: string) => categories.find(c => c.id === catId);
 
+  const isAdminRole = (role: ClubMembership["role"]) =>
+    role === "admin" || role === "president";
+
+  const clubsFromMemberships = (ms: ClubMembership[]): Club[] =>
+    ms
+      .map(m => allClubs.find(cl => cl.id === m.clubId))
+      .filter((cl): cl is Club => cl !== undefined);
+
+  const adminMemberships = memberships.filter(m => isAdminRole(m.role));
+  const memberOnlyMemberships = memberships.filter(m => !isAdminRole(m.role));
+  const adminClubs = clubsFromMemberships(adminMemberships);
+  const memberClubs = clubsFromMemberships(memberOnlyMemberships);
+
+  const myClubsSections: ClubSection[] = [];
+  if (adminClubs.length > 0) {
+    myClubsSections.push({
+      title: "Clubs you manage",
+      subtitle: "You are an admin for these clubs. Edit their profile from each club page.",
+      data: adminClubs,
+    });
+  }
+  if (memberClubs.length > 0) {
+    myClubsSections.push({
+      title: "My clubs",
+      subtitle: "Clubs you have joined as a member.",
+      data: memberClubs,
+    });
+  }
+
   return (
     <PageShell>
       <View style={[styles.container, { paddingTop: topInset }]}>
@@ -101,8 +139,8 @@ export default function MyClubsScreen() {
             <ActivityIndicator size="large" color={Colors.light.tint} />
           </View>
         ) : tab === 0 ? (
-          <FlatList
-            data={clubs}
+          <SectionList
+            sections={myClubsSections}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <ClubCard
@@ -112,6 +150,15 @@ export default function MyClubsScreen() {
                 role={getMemberRole(item.id)}
               />
             )}
+            renderSectionHeader={({ section }) => (
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>{section.title}</Text>
+                {section.subtitle ? (
+                  <Text style={styles.sectionSubtitle}>{section.subtitle}</Text>
+                ) : null}
+              </View>
+            )}
+            stickySectionHeadersEnabled={false}
             contentContainerStyle={[styles.list, { paddingBottom: layout.tabBarHeight + 28 }]}
             contentInsetAdjustmentBehavior="automatic"
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.light.tint} />}
@@ -138,7 +185,7 @@ export default function MyClubsScreen() {
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.light.tint} />}
             ListEmptyComponent={
               <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>You've joined all clubs!</Text>
+                <Text style={styles.emptyTitle}>You have joined all clubs!</Text>
               </View>
             }
           />
@@ -169,6 +216,23 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingTop: 4,
+  },
+  sectionHeader: {
+    paddingTop: 16,
+    paddingBottom: 8,
+    gap: 4,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+    color: Colors.light.text,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    color: Colors.light.textSecondary,
+    lineHeight: 20,
+    maxWidth: 640,
   },
   center: {
     flex: 1,

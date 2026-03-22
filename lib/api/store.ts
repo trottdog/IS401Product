@@ -70,7 +70,10 @@ export async function getAuthUser(): Promise<any | null> {
 }
 
 export async function logout(): Promise<void> {
-  await api("/api/auth/logout", { method: "POST" });
+  const res = await api("/api/auth/logout", { method: "POST" });
+  if (!res.ok) {
+    throw new Error(await getErrorMessage(res, "Logout failed"));
+  }
 }
 
 export async function getBuildings(): Promise<any[]> {
@@ -202,6 +205,33 @@ export async function createEvent(event: any): Promise<any> {
   return res.json();
 }
 
+export async function updateEvent(
+  eventId: string,
+  body: {
+    title?: string;
+    description?: string;
+    buildingId?: string;
+    categoryId?: string;
+    startTime?: string;
+    endTime?: string;
+    room?: string;
+    hasLimitedCapacity?: boolean;
+    maxCapacity?: number | null;
+    hasFood?: boolean;
+    foodDescription?: string | null;
+    tags?: string[];
+  },
+): Promise<any> {
+  const res = await api(`/api/events/${eventId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(await getErrorMessage(res, "Failed to update event"));
+  }
+  return res.json();
+}
+
 export async function updateEventCoverImage(eventId: string, imageUri: string): Promise<void> {
   await api(`/api/events/${eventId}/cover-image`, {
     method: "PATCH",
@@ -210,8 +240,41 @@ export async function updateEventCoverImage(eventId: string, imageUri: string): 
 }
 
 export async function updateClubCoverImage(clubId: string, imageUri: string): Promise<void> {
-  await api(`/api/clubs/${clubId}/cover-image`, {
+  const res = await api(`/api/clubs/${clubId}/cover-image`, {
     method: "PATCH",
     body: JSON.stringify({ imageUrl: imageUri }),
   });
+  if (!res.ok) {
+    throw new Error(await getErrorMessage(res, "Failed to update cover image"));
+  }
+}
+
+export async function updateClubProfileImage(clubId: string, imageUri: string): Promise<void> {
+  const res = await api(`/api/clubs/${clubId}/profile-image`, {
+    method: "PATCH",
+    body: JSON.stringify({ imageUrl: imageUri }),
+  });
+  if (!res.ok) {
+    throw new Error(await getErrorMessage(res, "Failed to update profile image"));
+  }
+}
+
+export async function updateClubDetails(
+  clubId: string,
+  body: {
+    name?: string;
+    description?: string;
+    contactEmail?: string;
+    website?: string;
+    instagram?: string;
+  },
+): Promise<any> {
+  const res = await api(`/api/clubs/${clubId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(await getErrorMessage(res, "Failed to update club"));
+  }
+  return res.json();
 }

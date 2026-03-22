@@ -3,7 +3,14 @@ import { createServer, type Server } from "node:http";
 import * as path from "path";
 import * as fs from "fs";
 import { storage } from "./storage";
-import { insertUserSchema, insertEventSchema, insertClubSchema, insertAnnouncementSchema } from "@shared/schema";
+import {
+  insertUserSchema,
+  insertEventSchema,
+  insertClubSchema,
+  insertAnnouncementSchema,
+  updateClubDetailsSchema,
+  updateEventDetailsSchema,
+} from "@shared/schema";
 
 declare module "express-session" {
   interface SessionData {
@@ -16,6 +23,38 @@ function requireAuth(req: Request, res: Response, next: () => void) {
     return res.status(401).json({ message: "Not authenticated" });
   }
   next();
+}
+
+function isClubAdminRole(role: string): boolean {
+  return role === "admin" || role === "president";
+}
+
+/** Normalize Express 5 `req.params` values that may be `string | string[]`. */
+function paramString(value: string | string[] | undefined): string {
+  if (value === undefined) return "";
+  return (Array.isArray(value) ? value[0] : value) ?? "";
+}
+
+/** Returns false after sending 403 if the user is not an admin/president of the club. */
+async function requireClubAdmin(req: Request, res: Response, clubId: string): Promise<boolean> {
+  const userId = req.session.userId!;
+  const membership = await storage.getMembershipForUserClub(userId, clubId);
+  if (!membership || !isClubAdminRole(membership.role)) {
+    res.status(403).json({ message: "Club admins only" });
+    return false;
+  }
+  return true;
+}
+
+/** Loads event and ensures the user is an admin/president of its club. */
+async function loadEventIfClubAdmin(req: Request, res: Response, eventId: string) {
+  const event = await storage.getEvent(eventId);
+  if (!event) {
+    res.status(404).json({ message: "Event not found" });
+    return undefined;
+  }
+  if (!(await requireClubAdmin(req, res, event.clubId))) return undefined;
+  return event;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -114,7 +153,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/clubs/:id", async (req, res) => {
-    const club = await storage.getClub(req.params.id);
+    const club = await storage.getClub(paramString(req.params.id));
     if (!club) return res.status(404).json({ message: "Club not found" });
     res.json(club);
   });
@@ -133,17 +172,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.patch("/api/clubs/:id/profile-image", requireAuth, async (req, res) => {
+    const clubId = paramString(req.params.id);
+    if (!clubId) return res.status(400).json({ message: "Invalid club id" });
+    if (!(await requireClubAdmin(req, res, clubId))) return;
     const { imageUrl } = req.body;
     if (!imageUrl) return res.status(400).json({ message: "imageUrl required" });
-    await storage.updateClubProfileImage(req.params.id, imageUrl);
+    const club = await storage.getClub(clubId);
+    if (!club) return res.status(404).json({ message: "Club not found" });
+    await storage.updateClubProfileImage(clubId, imageUrl);
     res.json({ message: "Updated" });
   });
 
   app.patch("/api/clubs/:id/cover-image", requireAuth, async (req, res) => {
+    const clubId = paramString(req.params.id);
+    if (!clubId) return res.status(400).json({ message: "Invalid club id" });
+    if (!(await requireClubAdmin(req, res, clubId))) return;
     const { imageUrl } = req.body;
     if (!imageUrl) return res.status(400).json({ message: "imageUrl required" });
-    await storage.updateClubCoverImage(req.params.id, imageUrl);
+    const club = await storage.getClub(clubId);
+    if (!club) return res.status(404).json({ message: "Club not found" });
+    await storage.updateClubCoverImage(clubId, imageUrl);
     res.json({ message: "Updated" });
+  });
+
+  app.patch("/api/clubs/:id", requireAuth, async (req, res) => {
+    const clubId = paramString(req.params.id);
+    if (!clubId) return res.status(400).json({ message: "Invalid club id" });
+    if (!(await requireClubAdmin(req, res, clubId))) return;
+
+    const parsed = updateClubDetailsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid input", errors: parsed.error.errors });
+    }
+    if (Object.keys(parsed.data).length === 0) {
+      return res.status(400).json({ message: "Provide at least one field to update" });
+    }
+
+    const updated = await storage.updateClub(clubId, parsed.data);
+    if (!updated) return res.status(404).json({ message: "Club not found" });
+    res.json(updated);
   });
 
   app.get("/api/events", async (_req, res) => {
@@ -152,7 +219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/events/:id", async (req, res) => {
-    const event = await storage.getEvent(req.params.id);
+    const event = await storage.getEvent(paramString(req.params.id));
     if (!event) return res.status(404).json({ message: "Event not found" });
     res.json(event);
   });
@@ -168,6 +235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!parsed.success) {
         return res.status(400).json({ message: "Invalid input", errors: parsed.error.errors });
       }
+      if (!(await requireClubAdmin(req, res, parsed.data.clubId))) return;
       const event = await storage.createEvent(parsed.data);
       return res.status(201).json(event);
     } catch (err) {
@@ -176,10 +244,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.patch("/api/events/:id/cover-image", requireAuth, async (req, res) => {
+    const eid = paramString(req.params.id);
+    if (!eid) return res.status(400).json({ message: "Invalid event id" });
+    const existing = await loadEventIfClubAdmin(req, res, eid);
+    if (!existing) return;
     const { imageUrl } = req.body;
     if (!imageUrl) return res.status(400).json({ message: "imageUrl required" });
-    await storage.updateEventCoverImage(req.params.id, imageUrl);
+    await storage.updateEventCoverImage(eid, imageUrl);
     res.json({ message: "Updated" });
+  });
+
+  app.patch("/api/events/:id", requireAuth, async (req, res) => {
+    const eid = paramString(req.params.id);
+    if (!eid) return res.status(400).json({ message: "Invalid event id" });
+    const existing = await loadEventIfClubAdmin(req, res, eid);
+    if (!existing) return;
+    if (existing.isCancelled) {
+      return res.status(400).json({ message: "Cannot edit a cancelled event" });
+    }
+    if (new Date(existing.endTime) <= new Date()) {
+      return res.status(400).json({ message: "Cannot edit an event that has already ended" });
+    }
+
+    const parsed = updateEventDetailsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid input", errors: parsed.error.errors });
+    }
+    if (Object.keys(parsed.data).length === 0) {
+      return res.status(400).json({ message: "Provide at least one field to update" });
+    }
+
+    const d = parsed.data;
+    const updates: Parameters<typeof storage.updateEvent>[1] = {};
+    if (d.title !== undefined) updates.title = d.title;
+    if (d.description !== undefined) updates.description = d.description;
+    if (d.buildingId !== undefined) updates.buildingId = d.buildingId;
+    if (d.categoryId !== undefined) updates.categoryId = d.categoryId;
+    if (d.room !== undefined) updates.room = d.room;
+    if (d.hasLimitedCapacity !== undefined) updates.hasLimitedCapacity = d.hasLimitedCapacity;
+    if (d.maxCapacity !== undefined) updates.maxCapacity = d.maxCapacity;
+    if (d.hasFood !== undefined) updates.hasFood = d.hasFood;
+    if (d.foodDescription !== undefined) updates.foodDescription = d.foodDescription;
+    if (d.tags !== undefined) updates.tags = d.tags;
+    if (d.startTime !== undefined) updates.startTime = new Date(d.startTime);
+    if (d.endTime !== undefined) updates.endTime = new Date(d.endTime);
+
+    const updated = await storage.updateEvent(eid, updates);
+    if (!updated) return res.status(404).json({ message: "Event not found" });
+    res.json(updated);
   });
 
   app.get("/api/memberships", requireAuth, async (req, res) => {
@@ -195,7 +307,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/memberships/:clubId", requireAuth, async (req, res) => {
-    await storage.leaveClub(req.session.userId!, req.params.clubId);
+    await storage.leaveClub(req.session.userId!, paramString(req.params.clubId));
     res.json({ message: "Left club" });
   });
 
@@ -212,7 +324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/saves/:eventId", requireAuth, async (req, res) => {
-    await storage.unsaveEvent(req.session.userId!, req.params.eventId);
+    await storage.unsaveEvent(req.session.userId!, paramString(req.params.eventId));
     res.json({ message: "Unsaved" });
   });
 
@@ -230,7 +342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/reservations/:eventId", requireAuth, async (req, res) => {
-    await storage.cancelReservation(req.session.userId!, req.params.eventId);
+    await storage.cancelReservation(req.session.userId!, paramString(req.params.eventId));
     res.json({ message: "Cancelled" });
   });
 
@@ -259,7 +371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.patch("/api/notifications/:id/read", requireAuth, async (req, res) => {
-    await storage.markNotificationRead(req.params.id);
+    await storage.markNotificationRead(paramString(req.params.id));
     res.json({ message: "Marked as read" });
   });
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, ScrollView, Pressable, StyleSheet, Platform, ActivityIndicator, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import Colors from "@/lib/theme/colors";
 import { useAuth } from "@/lib/auth/auth-context";
 import { Club, Building, Category, ClubMembership } from "@/lib/types";
@@ -11,11 +11,15 @@ import * as Haptics from "expo-haptics";
 import { PageShell } from "@/components/layout/PageShell";
 import { useResponsiveLayout } from "@/lib/ui/responsive";
 
-const STEPS = ["Basic Info", "Details", "Review & Create"];
+function searchParam(value: string | string[] | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  return Array.isArray(value) ? value[0] : value;
+}
 
 export default function CreateEventScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const params = useLocalSearchParams<{ clubId?: string; eventId?: string }>();
   const layout = useResponsiveLayout();
   const topInset = Platform.OS === "web" ? layout.topInset : insets.top;
   const bottomInset = Platform.OS === "web" ? layout.tabBarHeight : 49 + insets.bottom;
@@ -24,6 +28,8 @@ export default function CreateEventScreen() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [editEventId, setEditEventId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [clubs, setClubs] = useState<Club[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -46,27 +52,97 @@ export default function CreateEventScreen() {
   const [maxCapacity, setMaxCapacity] = useState("");
   const [tags, setTags] = useState("");
 
+  const stepLabels = editEventId
+    ? (["Basic Info", "Details", "Review & Save"] as const)
+    : (["Basic Info", "Details", "Review & Create"] as const);
+
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       if (!user) {
         setLoading(false);
         return;
       }
+      setLoading(true);
+      setLoadError(null);
+      const clubIdParam = searchParam(params.clubId);
+      const eventIdParam = searchParam(params.eventId);
+
       const [allClubs, allBuildings, allCategories, userMemberships] = await Promise.all([
         store.getClubs(),
         store.getBuildings(),
         store.getCategories(),
         store.getMemberships(user.id),
       ]);
+      if (cancelled) return;
       setClubs(allClubs);
       setBuildings(allBuildings);
       setCategories(allCategories);
       setMemberships(userMemberships);
+
+      const isManageRole = (m: ClubMembership) =>
+        m.role === "admin" || m.role === "president";
+
+      if (eventIdParam) {
+        const ev = await store.getEvent(eventIdParam);
+        if (cancelled) return;
+        if (!ev) {
+          setLoadError("Event not found.");
+          setLoading(false);
+          return;
+        }
+        const mem = userMemberships.find(x => x.clubId === ev.clubId);
+        if (!mem || !isManageRole(mem)) {
+          setLoadError("You can only edit events for clubs you manage.");
+          setLoading(false);
+          return;
+        }
+        if (ev.isCancelled || new Date(ev.endTime) <= new Date()) {
+          setLoadError("This event has ended or was cancelled and cannot be edited.");
+          setLoading(false);
+          return;
+        }
+        setEditEventId(eventIdParam);
+        setTitle(ev.title);
+        setClubId(ev.clubId);
+        setCategoryId(ev.categoryId);
+        setBuildingId(ev.buildingId);
+        setRoom(ev.room);
+        const start = new Date(ev.startTime);
+        const end = new Date(ev.endTime);
+        const y = start.getFullYear();
+        const mo = String(start.getMonth() + 1).padStart(2, "0");
+        const da = String(start.getDate()).padStart(2, "0");
+        setDate(`${y}-${mo}-${da}`);
+        setStartTime(
+          `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`,
+        );
+        setEndTime(
+          `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`,
+        );
+        setDescription(ev.description);
+        setHasFood(ev.hasFood);
+        setFoodDescription(ev.foodDescription ?? "");
+        setHasLimitedCapacity(ev.hasLimitedCapacity);
+        setMaxCapacity(ev.maxCapacity != null ? String(ev.maxCapacity) : "");
+        setTags(Array.isArray(ev.tags) ? ev.tags.join(", ") : "");
+      } else if (clubIdParam) {
+        const mem = userMemberships.find(x => x.clubId === clubIdParam);
+        if (mem && isManageRole(mem)) {
+          setClubId(clubIdParam);
+        }
+      }
+
       setLoading(false);
     })();
-  }, [user]);
+    return () => {
+      cancelled = true;
+    };
+  }, [user, params.clubId, params.eventId]);
 
-  const userClubs = clubs.filter(c => memberships.some(m => m.clubId === c.id));
+  const manageableClubs = clubs.filter(c =>
+    memberships.some(m => m.clubId === c.id && (m.role === "admin" || m.role === "president")),
+  );
 
   const validateStep1 = () => {
     if (!title.trim()) return "Please enter an event title";
@@ -104,7 +180,7 @@ export default function CreateEventScreen() {
     setStep(s => s - 1);
   };
 
-  const handleCreate = async () => {
+  const handleSubmit = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setCreating(true);
     try {
@@ -112,26 +188,47 @@ export default function CreateEventScreen() {
       const isoEnd = new Date(`${date}T${endTime}:00`).toISOString();
       const parsedTags = tags.split(",").map(t => t.trim()).filter(Boolean);
 
-      await store.createEvent({
-        title: title.trim(),
-        description: description.trim(),
-        clubId,
-        buildingId,
-        categoryId,
-        startTime: isoStart,
-        endTime: isoEnd,
-        room: room.trim(),
-        hasLimitedCapacity,
-        maxCapacity: hasLimitedCapacity && maxCapacity ? parseInt(maxCapacity, 10) : null,
-        hasFood,
-        foodDescription: hasFood && foodDescription.trim() ? foodDescription.trim() : null,
-        tags: parsedTags,
-      });
+      if (editEventId) {
+        await store.updateEvent(editEventId, {
+          title: title.trim(),
+          description: description.trim(),
+          buildingId,
+          categoryId,
+          startTime: isoStart,
+          endTime: isoEnd,
+          room: room.trim(),
+          hasLimitedCapacity,
+          maxCapacity: hasLimitedCapacity && maxCapacity ? parseInt(maxCapacity, 10) : null,
+          hasFood,
+          foodDescription: hasFood && foodDescription.trim() ? foodDescription.trim() : null,
+          tags: parsedTags,
+        });
+      } else {
+        await store.createEvent({
+          title: title.trim(),
+          description: description.trim(),
+          clubId,
+          buildingId,
+          categoryId,
+          startTime: isoStart,
+          endTime: isoEnd,
+          room: room.trim(),
+          hasLimitedCapacity,
+          maxCapacity: hasLimitedCapacity && maxCapacity ? parseInt(maxCapacity, 10) : null,
+          hasFood,
+          foodDescription: hasFood && foodDescription.trim() ? foodDescription.trim() : null,
+          tags: parsedTags,
+        });
+      }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch {
-      setError("Failed to create event. Please try again.");
+      setError(
+        editEventId
+          ? "Failed to update event. Please try again."
+          : "Failed to create event. Please try again.",
+      );
     } finally {
       setCreating(false);
     }
@@ -146,6 +243,21 @@ export default function CreateEventScreen() {
       <PageShell>
         <View style={[styles.loadingContainer, { paddingTop: topInset }]}>
           <ActivityIndicator size="large" color={Colors.light.tint} />
+        </View>
+      </PageShell>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <PageShell>
+        <View style={[styles.loadingContainer, { paddingTop: topInset, paddingHorizontal: 24 }]}>
+          <Ionicons name="alert-circle-outline" size={48} color={Colors.light.error} />
+          <Text style={styles.signInTitle}>Cannot open event</Text>
+          <Text style={styles.signInSubtitle}>{loadError}</Text>
+          <Pressable onPress={() => router.back()} style={styles.signInButton}>
+            <Text style={styles.signInButtonText}>Go back</Text>
+          </Pressable>
         </View>
       </PageShell>
     );
@@ -168,6 +280,23 @@ export default function CreateEventScreen() {
     );
   }
 
+  if (!editEventId && manageableClubs.length === 0) {
+    return (
+      <PageShell>
+        <View style={[styles.loadingContainer, { paddingTop: topInset, paddingHorizontal: 24 }]}>
+          <Ionicons name="shield-outline" size={48} color={Colors.light.textTertiary} />
+          <Text style={styles.signInTitle}>Club admins only</Text>
+          <Text style={styles.signInSubtitle}>
+            Only club admins and presidents can create events. Join a club and ask an officer to grant you admin access, or open this screen from a club you manage.
+          </Text>
+          <Pressable onPress={() => router.back()} style={styles.signInButton}>
+            <Text style={styles.signInButtonText}>Go back</Text>
+          </Pressable>
+        </View>
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell>
       <View style={[styles.container, { paddingTop: topInset }]}>
@@ -175,12 +304,12 @@ export default function CreateEventScreen() {
           <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.back(); }} hitSlop={12} style={styles.iconButton}>
             <Ionicons name="arrow-back" size={22} color={Colors.light.text} />
           </Pressable>
-          <Text style={styles.topBarTitle}>Create Event</Text>
+          <Text style={styles.topBarTitle}>{editEventId ? "Edit Event" : "Create Event"}</Text>
           <View style={{ width: 42 }} />
         </View>
 
         <View style={styles.progressContainer}>
-          {STEPS.map((label, i) => (
+          {stepLabels.map((label, i) => (
             <View key={label} style={styles.progressStep}>
               <View style={[
                 styles.progressDot,
@@ -198,7 +327,7 @@ export default function CreateEventScreen() {
               <Text style={[styles.progressLabel, i <= step && styles.progressLabelActive]}>
                 {label}
               </Text>
-              {i < STEPS.length - 1 && (
+              {i < stepLabels.length - 1 && (
                 <View style={[styles.progressLine, i < step && styles.progressLineActive]} />
               )}
             </View>
@@ -233,11 +362,13 @@ export default function CreateEventScreen() {
 
             <View style={styles.card}>
               <Text style={styles.fieldLabel}>Club</Text>
-              {userClubs.length === 0 ? (
-                <Text style={styles.emptyChipText}>You are not a member of any clubs yet.</Text>
+              {editEventId ? (
+                <Text style={styles.lockedClubName}>{getClubName(clubId)}</Text>
+              ) : manageableClubs.length === 0 ? (
+                <Text style={styles.emptyChipText}>No clubs you manage.</Text>
               ) : (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-                  {userClubs.map(c => (
+                  {manageableClubs.map(c => (
                     <Pressable
                       key={c.id}
                       onPress={() => { Haptics.selectionAsync(); setClubId(c.id); }}
@@ -523,13 +654,15 @@ export default function CreateEventScreen() {
               <Ionicons name="arrow-forward" size={18} color="#FFF" />
             </Pressable>
           ) : (
-            <Pressable onPress={handleCreate} style={[styles.nextButton, styles.createButton]} disabled={creating}>
+            <Pressable onPress={handleSubmit} style={[styles.nextButton, styles.createButton]} disabled={creating}>
               {creating ? (
                 <ActivityIndicator size="small" color="#FFF" />
               ) : (
                 <>
                   <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-                  <Text style={styles.nextButtonText}>Create Event</Text>
+                  <Text style={styles.nextButtonText}>
+                    {editEventId ? "Save changes" : "Create Event"}
+                  </Text>
                 </>
               )}
             </Pressable>
@@ -753,6 +886,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     color: Colors.light.textTertiary,
+  },
+  lockedClubName: {
+    fontSize: 16,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.light.text,
+    marginTop: 4,
   },
   row: {
     flexDirection: "row" as const,

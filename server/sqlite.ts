@@ -609,6 +609,47 @@ export class SqliteStorage {
       .run(imageUrl, id);
   }
 
+  async updateClub(
+    id: string,
+    updates: Partial<{
+      name: string;
+      description: string;
+      contactEmail: string;
+      website: string;
+      instagram: string;
+    }>,
+  ): Promise<Club | undefined> {
+    const existing = await this.getClub(id);
+    if (!existing) return undefined;
+
+    const colMap: Record<string, string> = {
+      name: "name",
+      description: "description",
+      contactEmail: "contact_email",
+      website: "website",
+      instagram: "instagram",
+    };
+
+    const sets: string[] = [];
+    const values: unknown[] = [];
+    for (const [key, val] of Object.entries(updates)) {
+      if (val === undefined) continue;
+      const col = colMap[key];
+      if (!col) continue;
+      sets.push(`${col} = ?`);
+      values.push(val);
+    }
+
+    if (sets.length === 0) return existing;
+
+    values.push(id);
+    sqlite
+      .prepare(`UPDATE ${tableNames.clubs} SET ${sets.join(", ")} WHERE id = ?`)
+      .run(...values);
+
+    return this.getClub(id);
+  }
+
   async getEvents() {
     return sqlite
       .prepare(
@@ -670,6 +711,81 @@ export class SqliteStorage {
       .run(imageUrl, id);
   }
 
+  async updateEvent(
+    id: string,
+    updates: Partial<{
+      title: string;
+      description: string;
+      buildingId: string;
+      categoryId: string;
+      startTime: Date;
+      endTime: Date;
+      room: string;
+      hasLimitedCapacity: boolean;
+      maxCapacity: number | null;
+      hasFood: boolean;
+      foodDescription: string | null;
+      tags: string[];
+    }>,
+  ): Promise<Event | undefined> {
+    const existing = await this.getEvent(id);
+    if (!existing) return undefined;
+
+    const colMap: Record<
+      string,
+      { col: string; serialize?: (v: unknown) => unknown }
+    > = {
+      title: { col: "title" },
+      description: { col: "description" },
+      buildingId: { col: "building_id" },
+      categoryId: { col: "category_id" },
+      startTime: {
+        col: "start_time",
+        serialize: (v) => (v as Date).toISOString(),
+      },
+      endTime: {
+        col: "end_time",
+        serialize: (v) => (v as Date).toISOString(),
+      },
+      room: { col: "room" },
+      hasLimitedCapacity: {
+        col: "has_limited_capacity",
+        serialize: (v) => ((v as boolean) ? 1 : 0),
+      },
+      maxCapacity: { col: "max_capacity" },
+      hasFood: {
+        col: "has_food",
+        serialize: (v) => ((v as boolean) ? 1 : 0),
+      },
+      foodDescription: { col: "food_description" },
+      tags: {
+        col: "tags",
+        serialize: (v) => JSON.stringify(v as string[]),
+      },
+    };
+
+    const sets: string[] = [];
+    const values: unknown[] = [];
+    for (const [key, val] of Object.entries(updates)) {
+      if (val === undefined) continue;
+      const meta = colMap[key];
+      if (!meta) continue;
+      sets.push(`${meta.col} = ?`);
+      values.push(meta.serialize ? meta.serialize(val) : val);
+    }
+
+    if (sets.length === 0) return existing;
+
+    values.push(id);
+    sqlite
+      .prepare(
+        `UPDATE ${tableNames.events} SET ${sets.join(", ")} WHERE id = ?`,
+      )
+      .run(...values);
+
+    return this.getEvent(id);
+  }
+
   async getMemberships(userId: string) {
     return sqlite
       .prepare(
@@ -677,6 +793,15 @@ export class SqliteStorage {
       )
       .all(userId)
       .map(normalizeMembership);
+  }
+
+  async getMembershipForUserClub(userId: string, clubId: string) {
+    const row = sqlite
+      .prepare(
+        `SELECT id, user_id as userId, club_id as clubId, role, joined_at as joinedAt FROM ${tableNames.clubMemberships} WHERE user_id = ? AND club_id = ?`,
+      )
+      .get(userId, clubId);
+    return row ? normalizeMembership(row as any) : undefined;
   }
 
   async joinClub(userId: string, clubId: string) {

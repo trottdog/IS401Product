@@ -31,6 +31,7 @@ export interface Club {
   contactEmail: string;
   website: string;
   instagram: string;
+  profileImage?: string;
   coverImage?: string;
 }
 

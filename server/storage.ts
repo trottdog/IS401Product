@@ -18,15 +18,43 @@ export interface IStorage {
   getClubs(): Promise<Club[]>;
   getClub(id: string): Promise<Club | undefined>;
   createClub(club: InsertClub): Promise<Club>;
+  updateClub(
+    id: string,
+    updates: Partial<{
+      name: string;
+      description: string;
+      contactEmail: string;
+      website: string;
+      instagram: string;
+    }>,
+  ): Promise<Club | undefined>;
   updateClubProfileImage(id: string, imageUrl: string): Promise<void>;
   updateClubCoverImage(id: string, imageUrl: string): Promise<void>;
 
   getEvents(): Promise<Event[]>;
   getEvent(id: string): Promise<Event | undefined>;
   createEvent(event: InsertEvent): Promise<Event>;
+  updateEvent(
+    id: string,
+    updates: Partial<{
+      title: string;
+      description: string;
+      buildingId: string;
+      categoryId: string;
+      startTime: Date;
+      endTime: Date;
+      room: string;
+      hasLimitedCapacity: boolean;
+      maxCapacity: number | null;
+      hasFood: boolean;
+      foodDescription: string | null;
+      tags: string[];
+    }>,
+  ): Promise<Event | undefined>;
   updateEventCoverImage(id: string, imageUrl: string): Promise<void>;
 
   getMemberships(userId: string): Promise<ClubMembership[]>;
+  getMembershipForUserClub(userId: string, clubId: string): Promise<ClubMembership | undefined>;
   joinClub(userId: string, clubId: string): Promise<ClubMembership>;
   leaveClub(userId: string, clubId: string): Promise<void>;
 

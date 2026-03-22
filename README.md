@@ -65,7 +65,46 @@ npm install
 
 3. Open the app on web or in a simulator.
 
+   **Web + API on the same machine:** point the frontend at the backend so login and sessions work:
+
+   ```powershell
+   # PowerShell (Windows), from the project folder — then press `w` for web
+   $env:EXPO_PUBLIC_DOMAIN="localhost:5000"; npm run start
+   ```
+
 The backend creates `.local/byuconnect.sqlite` on first run, initializes the schema, seeds the app data, and creates the SQLite-backed session table.
+
+### Demo login (club admin)
+
+Seeded data includes a user who is a **club admin** for **BYU Developers** so you can try editing that club’s profile (cover image, club avatar, and **Edit club details**).
+
+| | |
+|--|--|
+| **Email** | `student@byu.edu` |
+| **Password** | `password123` |
+
+1. Log in with the credentials above.  
+2. Open **BYU Developers** (club id `cl1` in seed data — browse clubs or an event from that club).  
+3. On the club page you should see **Admin**, **Add event**, **Edit** on upcoming events (Activity tab), and controls to change images and edit name, description, and contact fields.
+
+Only **club admins and presidents** can create or edit events for that club (enforced on the server).
+
+### Clubs tab (logged in)
+
+- **Clubs you manage** — memberships where you are **admin** or **president** (separate section).
+- **My clubs** — memberships where you are a **member** only.
+- **Discover** — clubs you have not joined.
+
+### API (club / event admin)
+
+| Method | Path | Notes |
+|--------|------|--------|
+| `PATCH` | `/api/clubs/:id` | Club details; club admin only |
+| `PATCH` | `/api/clubs/:id/profile-image`, `/cover-image` | Club admin only |
+| `POST` | `/api/events` | Club admin/president for `clubId` |
+| `PATCH` | `/api/events/:id` | Edit upcoming event; club admin only |
+
+> **Note:** This account exists after the database is created and seeded. If you already have an older SQLite file without this user, delete `.local/byuconnect.sqlite` and restart the backend to re-seed, or register a new user (that user will not be a club admin unless you add a membership with role `admin` in the DB).
 
 ## Production Notes
 
@@ -112,6 +151,10 @@ See [docs/aws-elastic-beanstalk.md](docs/aws-elastic-beanstalk.md) for the SQLit
 ### Database errors
 
 - Ensure the app can write to the directory used by `SQLITE_DB_PATH` or `.local/`
+
+### Sign out on web
+
+The profile **Sign out** flow uses the browser **confirm** dialog on web (React Native `Alert` with multiple buttons is unreliable on web). You are still signed out locally if the logout request fails.
 
 ### Windows
 
