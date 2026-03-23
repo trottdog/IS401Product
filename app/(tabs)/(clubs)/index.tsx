@@ -7,6 +7,7 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
+  Alert,
   Platform,
   RefreshControl,
 } from "react-native";
@@ -15,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import Colors from "@/lib/theme/colors";
 import { useAuth } from "@/lib/auth/auth-context";
-import { Club, ClubMembership, Category } from "@/lib/types";
+import { Club, ClubMembership, Category, Event } from "@/lib/types";
 import * as store from "@/lib/api/store";
 import { ClubCard } from "@/components/cards/ClubCard";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
@@ -31,6 +32,7 @@ export default function MyClubsScreen() {
   const [memberships, setMemberships] = useState<ClubMembership[]>([]);
   const [allClubs, setAllClubs] = useState<Club[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
   const [tab, setTab] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -40,14 +42,16 @@ export default function MyClubsScreen() {
 
   const loadData = useCallback(async () => {
     if (!user) return;
-    const [m, c, cats] = await Promise.all([
+    const [m, c, cats, e] = await Promise.all([
       store.getMemberships(user.id),
       store.getClubs(),
       store.getCategories(),
+      store.getEvents(),
     ]);
     setMemberships(m);
     setAllClubs(c);
     setCategories(cats);
+    setEvents(e);
     setLoading(false);
   }, [user]);
 
@@ -106,7 +110,7 @@ export default function MyClubsScreen() {
   if (adminClubs.length > 0) {
     myClubsSections.push({
       title: "Clubs you manage",
-      subtitle: "You are an admin for these clubs. Edit their profile from each club page.",
+      subtitle: "You are an admin for these clubs. Manage upcoming events below each club.",
       data: adminClubs,
     });
   }
@@ -117,6 +121,42 @@ export default function MyClubsScreen() {
       data: memberClubs,
     });
   }
+
+  const getUpcomingManagedEvents = (clubId: string) => {
+    const now = new Date();
+    return events
+      .filter((e) => e.clubId === clubId && !e.isCancelled && new Date(e.endTime) > now)
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  };
+
+  const handleEditEvent = (eventId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push({
+      pathname: "/(tabs)/(home)/create-event",
+      params: { eventId },
+    });
+  };
+
+  const handleCancelEvent = (event: Event) => {
+    const doCancelEvent = async () => {
+      try {
+        await store.updateEvent(event.id, { isCancelled: true });
+        setEvents((prev) => prev.map((e) => (e.id === event.id ? { ...e, isCancelled: true } : e)));
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {
+        Alert.alert("Could not cancel", "Failed to cancel event. Please try again.");
+      }
+    };
+
+    Alert.alert(
+      "Cancel event",
+      `Are you sure you want to cancel "${event.title}"?`,
+      [
+        { text: "Keep event", style: "cancel" },
+        { text: "Cancel event", style: "destructive", onPress: () => { void doCancelEvent(); } },
+      ],
+    );
+  };
 
   return (
     <PageShell>
@@ -142,14 +182,55 @@ export default function MyClubsScreen() {
           <SectionList
             sections={myClubsSections}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <ClubCard
-                club={item}
-                category={getCategory(item.categoryId)}
-                isMember
-                role={getMemberRole(item.id)}
-              />
-            )}
+            renderItem={({ item }) => {
+              const role = getMemberRole(item.id);
+              const managedEvents = isAdminRole(role) ? getUpcomingManagedEvents(item.id) : [];
+              return (
+                <View>
+                  <ClubCard
+                    club={item}
+                    category={getCategory(item.categoryId)}
+                    isMember
+                    role={role}
+                  />
+                  {isAdminRole(role) && (
+                    <View style={styles.adminEventsWrap}>
+                      <Text style={styles.adminEventsTitle}>Upcoming events</Text>
+                      {managedEvents.length === 0 ? (
+                        <Text style={styles.adminEventsEmpty}>No upcoming events to manage.</Text>
+                      ) : (
+                        managedEvents.map((event) => (
+                          <View key={event.id} style={styles.adminEventRow}>
+                            <View style={styles.adminEventInfo}>
+                              <Text style={styles.adminEventName} numberOfLines={1}>{event.title}</Text>
+                              <Text style={styles.adminEventMeta}>
+                                {new Date(event.startTime).toLocaleDateString()} · Room {event.room}
+                              </Text>
+                            </View>
+                            <View style={styles.adminActionsRow}>
+                              <Pressable
+                                onPress={() => handleEditEvent(event.id)}
+                                style={[styles.adminActionBtn, styles.adminActionBtnPrimary]}
+                              >
+                                <Ionicons name="create-outline" size={16} color="#fff" />
+                                <Text style={styles.adminActionPrimaryText}>Edit</Text>
+                              </Pressable>
+                              <Pressable
+                                onPress={() => handleCancelEvent(event)}
+                                style={[styles.adminActionBtn, styles.adminActionBtnDanger]}
+                              >
+                                <Ionicons name="close-circle-outline" size={16} color={Colors.light.error} />
+                                <Text style={styles.adminActionDangerText}>Cancel</Text>
+                              </Pressable>
+                            </View>
+                          </View>
+                        ))
+                      )}
+                    </View>
+                  )}
+                </View>
+              );
+            }}
             renderSectionHeader={({ section }) => (
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>{section.title}</Text>
@@ -278,5 +359,74 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontFamily: "Inter_600SemiBold",
     fontSize: 14,
+  },
+  adminEventsWrap: {
+    marginTop: -4,
+    marginBottom: 8,
+    paddingHorizontal: 2,
+    gap: 8,
+  },
+  adminEventsTitle: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.light.textSecondary,
+  },
+  adminEventsEmpty: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: Colors.light.textTertiary,
+  },
+  adminEventRow: {
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+    backgroundColor: Colors.light.surface,
+    gap: 8,
+  },
+  adminEventInfo: {
+    gap: 2,
+  },
+  adminEventName: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.light.text,
+  },
+  adminEventMeta: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: Colors.light.textSecondary,
+  },
+  adminActionsRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  adminActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+  },
+  adminActionBtnPrimary: {
+    backgroundColor: Colors.light.tint,
+    borderColor: Colors.light.tint,
+  },
+  adminActionBtnDanger: {
+    backgroundColor: Colors.light.error + "0F",
+    borderColor: Colors.light.error + "40",
+  },
+  adminActionPrimaryText: {
+    color: "#fff",
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
+  },
+  adminActionDangerText: {
+    color: Colors.light.error,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
   },
 });

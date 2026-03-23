@@ -286,6 +286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (d.hasFood !== undefined) updates.hasFood = d.hasFood;
     if (d.foodDescription !== undefined) updates.foodDescription = d.foodDescription;
     if (d.tags !== undefined) updates.tags = d.tags;
+    if (d.isCancelled !== undefined) updates.isCancelled = d.isCancelled;
     if (d.startTime !== undefined) updates.startTime = new Date(d.startTime);
     if (d.endTime !== undefined) updates.endTime = new Date(d.endTime);
 

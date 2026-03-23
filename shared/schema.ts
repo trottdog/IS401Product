@@ -138,6 +138,7 @@ export const updateEventDetailsSchema = z
     hasFood: z.boolean().optional(),
     foodDescription: z.string().nullable().optional(),
     tags: z.array(z.string()).optional(),
+    isCancelled: z.boolean().optional(),
   })
   .strict();
 

@@ -226,6 +226,7 @@ export async function updateEvent(
     hasFood?: boolean;
     foodDescription?: string | null;
     tags?: string[];
+    isCancelled?: boolean;
   },
 ): Promise<any> {
   const res = await api(`/api/events/${eventId}`, {
