@@ -84,29 +84,58 @@ export default function ClubProfileScreen() {
     })();
   }, [clubPageId, user]);
 
+  const [joining, setJoining] = useState(false);
+
+  const doLeave = async () => {
+    if (!user || !clubPageId) return;
+    setJoining(true);
+    try {
+      await store.leaveClub(user.id, clubPageId);
+      setMembership(null);
+      if (club) setClub({ ...club, memberCount: Math.max(0, club.memberCount - 1) });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e) {
+      if (Platform.OS === "web") {
+        window.alert("Failed to leave club. Please try again.");
+      } else {
+        Alert.alert("Error", "Failed to leave club. Please try again.");
+      }
+    } finally {
+      setJoining(false);
+    }
+  };
+
   const handleJoin = async () => {
     if (!user) { router.push("/(auth)/login"); return; }
-    if (!clubPageId) return;
+    if (!clubPageId || joining) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (membership) {
-      Alert.alert("Leave Club", `Leave ${club?.name}?`, [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Leave",
-          style: "destructive",
-          onPress: async () => {
-            await store.leaveClub(user.id, clubPageId);
-            setMembership(null);
-            if (club) setClub({ ...club, memberCount: Math.max(0, club.memberCount - 1) });
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          },
-        },
-      ]);
+      if (Platform.OS === "web") {
+        if (window.confirm(`Leave ${club?.name}?`)) {
+          doLeave();
+        }
+      } else {
+        Alert.alert("Leave Club", `Leave ${club?.name}?`, [
+          { text: "Cancel", style: "cancel" },
+          { text: "Leave", style: "destructive", onPress: doLeave },
+        ]);
+      }
     } else {
-      const m = await store.joinClub(user.id, clubPageId);
-      setMembership(m);
-      if (club) setClub({ ...club, memberCount: club.memberCount + 1 });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setJoining(true);
+      try {
+        const m = await store.joinClub(user.id, clubPageId);
+        setMembership(m);
+        if (club) setClub({ ...club, memberCount: club.memberCount + 1 });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (e) {
+        if (Platform.OS === "web") {
+          window.alert("Failed to join club. Please try again.");
+        } else {
+          Alert.alert("Error", "Failed to join club. Please try again.");
+        }
+      } finally {
+        setJoining(false);
+      }
     }
   };
 
@@ -279,19 +308,24 @@ export default function ClubProfileScreen() {
 
             <Pressable
               onPress={handleJoin}
+              disabled={joining}
               style={({ pressed }) => [
                 styles.joinBtn,
                 membership && styles.joinedBtn,
-                { opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
+                { opacity: (pressed || joining) ? 0.7 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
               ]}
             >
-              <Ionicons
-                name={membership ? "checkmark-circle" : "add-circle-outline"}
-                size={18}
-                color={membership ? Colors.light.success : "#fff"}
-              />
+              {joining ? (
+                <ActivityIndicator size="small" color={membership ? Colors.light.success : "#fff"} />
+              ) : (
+                <Ionicons
+                  name={membership ? "checkmark-circle" : "add-circle-outline"}
+                  size={18}
+                  color={membership ? Colors.light.success : "#fff"}
+                />
+              )}
               <Text style={[styles.joinBtnText, membership && { color: Colors.light.success }]}>
-                {membership ? (isAdmin ? "Admin" : "Joined") : "Join Club"}
+                {joining ? (membership ? "Leaving..." : "Joining...") : membership ? (isAdmin ? "Admin" : "Joined") : "Join Club"}
               </Text>
             </Pressable>
 

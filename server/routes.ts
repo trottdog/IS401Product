@@ -300,15 +300,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/memberships", requireAuth, async (req, res) => {
-    const { clubId } = req.body;
-    if (!clubId) return res.status(400).json({ message: "clubId required" });
-    const membership = await storage.joinClub(req.session.userId!, clubId);
-    res.status(201).json(membership);
+    try {
+      const { clubId } = req.body;
+      if (!clubId) return res.status(400).json({ message: "clubId required" });
+      const club = await storage.getClub(clubId);
+      if (!club) return res.status(404).json({ message: "Club not found" });
+      const membership = await storage.joinClub(req.session.userId!, clubId);
+      res.status(201).json(membership);
+    } catch (err) {
+      return res.status(500).json({ message: "Failed to join club" });
+    }
   });
 
   app.delete("/api/memberships/:clubId", requireAuth, async (req, res) => {
-    await storage.leaveClub(req.session.userId!, paramString(req.params.clubId));
-    res.json({ message: "Left club" });
+    try {
+      await storage.leaveClub(req.session.userId!, paramString(req.params.clubId));
+      res.json({ message: "Left club" });
+    } catch (err) {
+      return res.status(500).json({ message: "Failed to leave club" });
+    }
   });
 
   app.get("/api/saves", requireAuth, async (req, res) => {

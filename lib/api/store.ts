@@ -126,11 +126,17 @@ export async function joinClub(userId: string, clubId: string): Promise<any> {
     method: "POST",
     body: JSON.stringify({ clubId }),
   });
+  if (!res.ok) {
+    throw new Error(await getErrorMessage(res, "Failed to join club"));
+  }
   return res.json();
 }
 
 export async function leaveClub(userId: string, clubId: string): Promise<void> {
-  await api(`/api/memberships/${clubId}`, { method: "DELETE" });
+  const res = await api(`/api/memberships/${clubId}`, { method: "DELETE" });
+  if (!res.ok) {
+    throw new Error(await getErrorMessage(res, "Failed to leave club"));
+  }
 }
 
 export async function getSaves(userId: string): Promise<any[]> {
