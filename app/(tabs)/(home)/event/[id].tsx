@@ -135,6 +135,20 @@ export default function EventDetailScreen() {
             <Ionicons name="chevron-back" size={24} color={Colors.light.text} />
           </Pressable>
           <View style={styles.topBarActions}>
+            {isAdmin && (
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push({
+                    pathname: "/(tabs)/(home)/create-event",
+                    params: { clubId: event.clubId, eventId: event.id },
+                  });
+                }}
+                hitSlop={12}
+              >
+                <Ionicons name="pencil-outline" size={24} color={Colors.light.text} />
+              </Pressable>
+            )}
             <Pressable onPress={handleSave} hitSlop={12}>
               <Ionicons name={isSaved ? "bookmark" : "bookmark-outline"} size={24} color={isSaved ? Colors.light.tint : Colors.light.text} />
             </Pressable>

@@ -408,7 +408,7 @@ export default function ClubProfileScreen() {
                               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                               router.push({
                                 pathname: "/(tabs)/(home)/create-event",
-                                params: { eventId: e.id },
+                                params: {clubId: e.clubId, eventId: e.id },
                               });
                             }}
                             style={styles.editEventBtn}
